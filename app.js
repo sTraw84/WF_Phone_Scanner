@@ -35,6 +35,37 @@ scanButton.addEventListener('click', async function() {
       { logger: m => { /* Optionally log progress */ } }
     );
     const ocrText = result.data.text.trim();
+    // Utility: Levenshtein distance
+    function levenshtein(a, b) {
+      const matrix = Array.from({ length: a.length + 1 }, () => []);
+      for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+      for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+      for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+          if (a[i - 1] === b[j - 1]) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j] + 1,
+              matrix[i][j - 1] + 1,
+              matrix[i - 1][j - 1] + 1
+            );
+          }
+        }
+      }
+      return matrix[a.length][b.length];
+    }
+
+    // Build all valid relic codes (A1-Z99 for each era)
+    const validRelicCodes = [];
+    ['Meso', 'Lith', 'Neo', 'Axi'].forEach(era => {
+      for (let l = 65; l <= 90; l++) { // A-Z
+        for (let n = 1; n <= 99; n++) {
+          validRelicCodes.push(`${era} ${String.fromCharCode(l)}${n}`);
+        }
+      }
+    });
+
     // Improved regex: extract only the main relic code (e.g., 'Neo A10')
     const relicRegex = /(Meso|Lith|Neo|Axi)\s?[A-Z][0-9]+/g;
     const matches = [];
@@ -42,6 +73,25 @@ scanButton.addEventListener('click', async function() {
     while ((match = relicRegex.exec(ocrText)) !== null) {
       matches.push(match[0].replace(/\s+/, ' ')); // Normalize spacing
     }
+    // Fuzzy matching for missed relics
+    // Split OCR text into words and try to fuzzy match to valid relic codes
+    const words = ocrText.split(/\s+/);
+    words.forEach(word => {
+      // Skip if already matched
+      if (matches.includes(word)) return;
+      // Try to fuzzy match
+      let best = null, bestDist = 3;
+      validRelicCodes.forEach(code => {
+        const dist = levenshtein(word, code.replace(' ', ''));
+        if (dist < bestDist) {
+          best = code;
+          bestDist = dist;
+        }
+      });
+      if (best && bestDist <= 1 && !matches.includes(best)) {
+        matches.push(best);
+      }
+    });
     // Group into four sections
     let grouped = [];
     for (let i = 0; i < 4; i++) {
@@ -72,7 +122,7 @@ scanButton.addEventListener('click', async function() {
             .replace(/[^a-z0-9_]/g, '');
         }
         try {
-          const res = await fetch(`https://api.warframe.market/v1/items/${urlName}/orders?platform=pc`);
+          const res = await fetch(`https://wf-phone-scanner.onrender.com/api/orders/${urlName}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
           const data = await res.json();
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
