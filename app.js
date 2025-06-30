@@ -67,6 +67,7 @@ scanButton.addEventListener('click', async function() {
         if (!urlName) return `<div>${partName}: <span style='color:#aaa'>No market data</span></div>`;
         try {
           const res = await fetch(`https://api.warframe.market/v1/items/${urlName}/orders?platform=pc`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
           const data = await res.json();
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
           // Filter for sell+ingame orders
@@ -77,7 +78,7 @@ scanButton.addEventListener('click', async function() {
           const avg = (lowest.reduce((sum, o) => sum + o.platinum, 0) / lowest.length).toFixed(1);
           return `<div>${partName}: <strong>${avg}p</strong></div>`;
         } catch (e) {
-          return `<div>${partName}: <span style='color:#aaa'>API error</span></div>`;
+          return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
         }
       }));
       return `<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`;
