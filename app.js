@@ -63,11 +63,17 @@ scanButton.addEventListener('click', async function() {
       // For each part, fetch price using WFInfo logic
       const partRows = await Promise.all(relicEntry.rewards.map(async r => {
         const partName = r.item.name;
-        const urlName = r.warframeMarket && r.warframeMarket.urlName;
-        if (!urlName) return `<div>${partName}: <span style='color:#aaa'>No market data</span></div>`;
+        // Use warframeMarket.urlName if present, otherwise generate slug
+        let urlName = r.warframeMarket && r.warframeMarket.urlName;
+        if (!urlName) {
+          urlName = partName
+            .toLowerCase()
+            .replace(/\s+/g, '_')
+            .replace(/[^a-z0-9_]/g, '');
+        }
         try {
           const res = await fetch(`https://api.warframe.market/v1/items/${urlName}/orders?platform=pc`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
           const data = await res.json();
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
           // Filter for sell+ingame orders
