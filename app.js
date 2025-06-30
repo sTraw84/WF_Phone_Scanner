@@ -60,20 +60,23 @@ scanButton.addEventListener('click', async function() {
       // Find matching relic in relicsData (ignore suffixes like 'Radiant', 'Exceptional', etc.)
       const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
       if (!relicEntry) return `<div><strong>${relicCode}:</strong> Not found in data</div>`;
-      // For each part, fetch price
+      // For each part, fetch price using WFInfo logic
       const partRows = await Promise.all(relicEntry.rewards.map(async r => {
         const partName = r.item.name;
         const urlName = r.warframeMarket && r.warframeMarket.urlName;
         if (!urlName) return `<div>${partName}: <span style='color:#aaa'>No market data</span></div>`;
         try {
-          const res = await fetch(`https://api.warframe.market/v1/items/${urlName}/statistics?platform=pc`);
+          const res = await fetch(`https://api.warframe.market/v1/items/${urlName}/orders?platform=pc`);
           const data = await res.json();
-          // Use 48hours statistics, closed orders
-          const stats = data.payload.statistics_closed['48hours'];
-          // Calculate average price
-          const avg = stats && stats.length ? (stats.reduce((sum, s) => sum + (s.avg_price || 0), 0) / stats.length).toFixed(1) : 'N/A';
+          if (!data.payload || !data.payload.orders) throw new Error('No orders');
+          // Filter for sell+ingame orders
+          const sellIngame = data.payload.orders.filter(o => o.order_type === 'sell' && o.user.status === 'ingame');
+          if (!sellIngame.length) return `<div>${partName}: <span style='color:#aaa'>No ingame sellers</span></div>`;
+          // Sort by platinum price, take lowest 5
+          const lowest = sellIngame.sort((a, b) => a.platinum - b.platinum).slice(0, 5);
+          const avg = (lowest.reduce((sum, o) => sum + o.platinum, 0) / lowest.length).toFixed(1);
           return `<div>${partName}: <strong>${avg}p</strong></div>`;
-        } catch {
+        } catch (e) {
           return `<div>${partName}: <span style='color:#aaa'>API error</span></div>`;
         }
       }));
