@@ -8,15 +8,27 @@
 </head>
 <body>
   <h1>Warframe Relic Scanner</h1>
-  <p>Upload a photo or use your camera to scan your relics!</p>
-  <button id="scanBtn">Scan Image</button>
-  <button id="uploadBtn">Upload Image</button>
-  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-  <input type="file" id="uploadInput" accept="image/*" style="display:none;">
+  <img src="example.jpg" alt="Example" id="exampleImg" style="max-width: 90vw; max-height: 180px; display: block; margin: 0 auto 0.5rem auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.5);" />
+  <div class="instructions" style="margin-bottom: 1.2rem; text-align: center;">
+    When mission loads, load options menu and take a picture of the users in the top left to capture their relic data.
+  </div>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin-bottom: 1.2rem;">
+    <label for="scanMode" style="font-weight: bold;">Scan Mode:</label>
+    <select id="scanMode">
+      <option value="fissure">Fissure Scan (up to 4 relics)</option>
+      <option value="mass">Mass Scan (all found)</option>
+    </select>
+    <div style="margin-top: 0.7rem;">
+      <button id="cameraScanBtn">Camera Scan</button>
+      <button id="uploadBtn">Upload Image</button>
+    </div>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="uploadInput" accept="image/*" style="display:none;">
+  </div>
   <div id="imagePreviewContainer">
     <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
   </div>
-  <button id="scanButton" style="display:none; margin-top:1rem;">Scan Image</button>
+  <button id="scanButton" style="display:none; margin-top:1rem;">Run Scan</button>
   <div id="ocrResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
   <div id="priceResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
   <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
