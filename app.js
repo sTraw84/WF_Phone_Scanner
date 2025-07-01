@@ -31,12 +31,11 @@ async function throttleAsync(items, concurrency, asyncFn) {
     const p = Promise.resolve().then(() => asyncFn(item));
     results.push(p);
 
-    if (concurrency <= items.length) {
-      const e = p.then(() => executing.splice(executing.indexOf(e), 1));
-      executing.push(e);
-      if (executing.length >= concurrency) {
-        await Promise.race(executing);
-      }
+    const e = p.then(() => executing.splice(executing.indexOf(e), 1));
+    executing.push(e);
+
+    if (executing.length >= concurrency) {
+      await Promise.race(executing);
     }
   }
 
@@ -58,6 +57,7 @@ const scanModeSelect = document.getElementById('scanMode');
 cameraScanBtn.addEventListener('click', () => cameraInput.click());
 uploadBtn.addEventListener('click', () => uploadInput.click());
 
+// Handle image input and show preview
 function handleImageInput(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -75,53 +75,61 @@ function handleImageInput(event) {
 cameraInput.addEventListener('change', handleImageInput);
 uploadInput.addEventListener('change', handleImageInput);
 
+// Levenshtein distance for fuzzy matching
+function levenshtein(a, b) {
+  const matrix = Array.from({ length: a.length + 1 }, () => []);
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + 1
+        );
+      }
+    }
+  }
+  return matrix[a.length][b.length];
+}
+
+// Generate valid relic codes (e.g. "Lith A1", "Neo Z99")
+const validRelicCodes = [];
+['Meso', 'Lith', 'Neo', 'Axi'].forEach(era => {
+  for (let l = 65; l <= 90; l++) { // ASCII A-Z
+    for (let n = 1; n <= 99; n++) {
+      validRelicCodes.push(`${era} ${String.fromCharCode(l)}${n}`);
+    }
+  }
+});
+
 scanButton.addEventListener('click', async () => {
   scanButton.disabled = true;
   ocrResult.textContent = 'Scanning... Please wait.';
   priceResult.textContent = '';
 
   try {
-    // OCR with Tesseract
+    // OCR with Tesseract.js
     const result = await Tesseract.recognize(imagePreview.src, 'eng', { logger: () => {} });
     const ocrText = result.data.text.trim();
 
-    // Levenshtein distance for fuzzy matching
-    function levenshtein(a, b) {
-      const matrix = Array.from({ length: a.length + 1 }, () => []);
-      for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
-      for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
-      for (let i = 1; i <= a.length; i++) {
-        for (let j = 1; j <= b.length; j++) {
-          if (a[i - 1] === b[j - 1]) matrix[i][j] = matrix[i - 1][j - 1];
-          else matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + 1);
-        }
-      }
-      return matrix[a.length][b.length];
-    }
-
-    // Generate valid relic codes (A1-Z99 for each era)
-    const validRelicCodes = [];
-    ['Meso', 'Lith', 'Neo', 'Axi'].forEach(era => {
-      for (let l = 65; l <= 90; l++) {
-        for (let n = 1; n <= 99; n++) {
-          validRelicCodes.push(`${era} ${String.fromCharCode(l)}${n}`);
-        }
-      }
-    });
-
-    // Extract relic codes from OCR text using regex
+    // Extract relic codes using regex
     const relicRegex = /(Meso|Lith|Neo|Axi)\s?[A-Z][0-9]+/g;
     const matches = [];
     let match;
     while ((match = relicRegex.exec(ocrText)) !== null) {
-      matches.push(match[0].replace(/\s+/, ' ')); // Normalize spacing
+      matches.push(match[0].replace(/\s+/, ' ')); // Normalize spaces
     }
 
-    // Fuzzy matching for possible missed relics
+    // Fuzzy matching for missed relics
     const words = ocrText.split(/\s+/);
     words.forEach(word => {
       if (matches.includes(word)) return;
-      let best = null, bestDist = 3;
+      let best = null;
+      let bestDist = 3; // max allowed distance
       validRelicCodes.forEach(code => {
         const dist = levenshtein(word, code.replace(' ', ''));
         if (dist < bestDist) {
@@ -138,13 +146,12 @@ scanButton.addEventListener('click', async () => {
     const scanMode = scanModeSelect.value;
     let grouped = [];
     if (scanMode === 'fissure') {
+      // Group into 4 relics of 1 each
       for (let i = 0; i < 4; i++) {
-        grouped.push(matches.slice(i * 1, (i + 1) * 1));
+        grouped.push(matches.slice(i, i + 1));
       }
     } else {
-      for (let i = 0; i < matches.length; i++) {
-        grouped.push([matches[i]]);
-      }
+      grouped = matches.map(m => [m]);
     }
 
     // Display grouped relics in OCR result
@@ -157,7 +164,7 @@ scanButton.addEventListener('click', async () => {
     // Load relic data
     const relicsData = await loadRelicsData();
 
-    // Fetch prices for each grouped relic
+    // Fetch prices for each grouped relic with concurrency throttle
     const priceSections = await Promise.all(grouped.map(async (group, idx) => {
       const relicCode = group[0];
       if (!relicCode) return `<div><strong>Relic ${idx + 1}:</strong> No relic found</div>`;
@@ -166,7 +173,7 @@ scanButton.addEventListener('click', async () => {
       const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
       if (!relicEntry) return `<div><strong>${relicCode}:</strong> Not found in data</div>`;
 
-      // Fetch price data with throttling concurrency = 2
+      // Fetch price data for each reward with concurrency = 2
       const partRows = await throttleAsync(relicEntry.rewards, 2, async (r) => {
         const partName = r.item.name;
         let urlName = r.warframeMarket && r.warframeMarket.urlName;
@@ -190,7 +197,7 @@ scanButton.addEventListener('click', async () => {
         } catch (e) {
           return `<div>${partName}: <span style="color:#f88">${e.message}</span></div>`;
         }
-      }));
+      });
 
       return `<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`;
     }));
