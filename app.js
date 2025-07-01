@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           let urlName = slugMap[lowerName] || findBestSlug(lowerName, slugMap);
           try {
             const res = await fetch(`https://wf-phone-scanner.onrender.com/api/orders/${urlName}`,
-              { headers: { 'User-Agent': 'your_email@example.com', 'Accept': 'application/json' } });
+              { headers: { 'User-Agent': 'sjtrawick@hotmail.com', 'Accept': 'application/json' } });
             if (res.status === 404) {
               return `<div>${partName}: <span style='color:#aaa'>Not tradable on market</span></div>`;
             }
