@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let scanMode = null;
 
+  // Fetch and cache slugs before any scan logic
+  let slugMap = await getSlugMap();
+
   // Mode selection logic
   const modeSelect = document.getElementById('modeSelect');
   const scanSection = document.getElementById('scanSection');
@@ -48,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   cameraInput.addEventListener('change', handleImageInput);
   uploadInput.addEventListener('change', handleImageInput);
 
-  // Handle OCR scan
+  // Handle OCR scan (now safe to use slugMap)
   const scanButton = document.getElementById('scanButton');
   scanButton.addEventListener('click', async function() {
     const img = document.getElementById('imagePreview');
@@ -153,7 +156,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           let urlName = slugMap[lowerName] || findBestSlug(lowerName, slugMap);
           try {
             const res = await fetch(`https://wf-phone-scanner.onrender.com/api/orders/${urlName}`,
-              { headers: { 'User-Agent': 'sjtrawick@gmail.com', 'Accept': 'application/json' } });
+              { headers: { 'User-Agent': 'your_email@example.com', 'Accept': 'application/json' } });
             if (res.status === 404) {
               return `<div>${partName}: <span style='color:#aaa'>Not tradable on market</span></div>`;
             }
@@ -242,9 +245,4 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Fallback
     return lower.replace(/\\s+/g, '_').replace(/[^a-z0-9_]/g, '');
   }
-
-  // 4. Usage in your app
-  const slugMap = await getSlugMap();
-  const slug = findBestSlug(ocrPartName, slugMap);
-  // Use slug in your API call 
 }); 
