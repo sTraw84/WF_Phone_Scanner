@@ -6,21 +6,24 @@ const NodeCache = require('node-cache');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const cache = new NodeCache({ stdTTL: 60 }); // Cache results for 60 seconds
+
+// Cache results for 5 minutes
+const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 app.use(cors());
 
-// Apply basic rate limiting to avoid being blocked by the Warframe.Market API
+// Rate limiting to protect your server and the Warframe.Market API
 const limiter = rateLimit({
-  windowMs: 1000, // 1 second window
-  max: 3,         // limit each IP to 3 requests per windowMs
+  windowMs: 5000, // 5 seconds
+  max: 10,        // Max 10 requests per window per IP
   message: { error: 'Too many requests, slow down.' }
 });
 app.use('/api/', limiter);
 
-// Set User-Agent to comply with Warframe.Market API rules
+// Warframe Market requires a valid User-Agent
 const USER_AGENT = 'WarframeRelicScanner/1.0 (contact: sjtrawick@gmail.com)';
 
+// Single-item proxy (same as before, kept for compatibility)
 app.get('/api/orders/:item', async (req, res) => {
   const item = req.params.item.toLowerCase();
 
@@ -45,11 +48,63 @@ app.get('/api/orders/:item', async (req, res) => {
     }
 
     const json = await response.json();
-    cache.set(item, json); // Cache the response
+    cache.set(item, json);
     res.json(json);
   } catch (e) {
     console.error(`Fetch error for ${item}:`, e);
     res.status(500).json({ error: 'Server error. Please try again later.' });
+  }
+});
+
+// 🔥 NEW: Batch fetch endpoint
+app.get('/api/orders_batch', async (req, res) => {
+  const itemsParam = req.query.items;
+  if (!itemsParam) {
+    return res.status(400).json({ error: 'Missing items query parameter' });
+  }
+
+  const items = itemsParam.split(',').map(i => i.trim().toLowerCase());
+  const results = {};
+  const uncached = [];
+
+  // Check cache first
+  items.forEach(item => {
+    const cached = cache.get(item);
+    if (cached) {
+      results[item] = cached;
+    } else {
+      uncached.push(item);
+    }
+  });
+
+  // Fetch uncached items in parallel
+  try {
+    const fetchPromises = uncached.map(async item => {
+      const apiUrl = `https://api.warframe.market/v1/items/${item}/orders?platform=pc`;
+      const response = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': USER_AGENT,
+          'Accept': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        console.warn(`Failed to fetch ${item}: ${response.statusText}`);
+        results[item] = { error: `Failed to fetch: ${response.statusText}` };
+        return;
+      }
+
+      const json = await response.json();
+      results[item] = json;
+      cache.set(item, json);
+    });
+
+    await Promise.all(fetchPromises);
+
+    res.json({ success: true, payload: results });
+  } catch (e) {
+    console.error('Batch fetch error:', e);
+    res.status(500).json({ error: 'Server error during batch fetch' });
   }
 });
 
