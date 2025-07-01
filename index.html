@@ -8,18 +8,25 @@
 </head>
 <body>
   <h1>Warframe Relic Scanner</h1>
-  <p>Upload a photo or use your camera to scan your relics!</p>
-  <button id="scanBtn">Scan Image</button>
-  <button id="uploadBtn">Upload Image</button>
-  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-  <input type="file" id="uploadInput" accept="image/*" style="display:none;">
-  <div id="imagePreviewContainer">
-    <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
+  <div id="modeSelect">
+    <button id="fissureModeBtn" class="mode-btn">Fissure Scan</button>
+    <div class="mode-desc">This mode is meant for running fissure relic missions. When the mission loads, open the options menu and take a picture of the users in the top left to capture their relic data.</div>
+    <button id="massModeBtn" class="mode-btn">Mass Scan</button>
+    <div class="mode-desc">This mode is for scanning multiple relics from your inventory or a saved image from your phone.</div>
   </div>
-  <button id="scanButton" style="display:none; margin-top:1rem;">Scan Image</button>
-  <div id="ocrResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
-  <div id="priceResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
-  <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
+  <div id="scanSection" style="display:none;">
+    <button id="scanBtn">Scan Image</button>
+    <button id="uploadBtn">Upload Image</button>
+    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+    <input type="file" id="uploadInput" accept="image/*" style="display:none;">
+    <div id="imagePreviewContainer">
+      <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
+    </div>
+    <button id="scanButton" style="display:none; margin-top:1rem;">Run OCR</button>
+    <div id="ocrResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
+    <div id="priceResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
+    <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
 </body>
