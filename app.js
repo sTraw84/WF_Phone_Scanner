@@ -5,15 +5,31 @@ fetch('Relics.json')
   .then(data => { relicsData = data; })
   .catch(() => { relicsData = []; });
 
-// Handle image input and preview
-document.getElementById('scanBtn').addEventListener('click', function() {
-  document.getElementById('cameraInput').click();
-});
-document.getElementById('uploadBtn').addEventListener('click', function() {
-  document.getElementById('uploadInput').click();
-});
+let scanMode = null;
 
-// Use the same handler for both inputs
+// Mode selection logic
+const modeSelect = document.getElementById('modeSelect');
+const scanSection = document.getElementById('scanSection');
+document.getElementById('fissureModeBtn').onclick = () => {
+  scanMode = 'fissure';
+  modeSelect.style.display = 'none';
+  scanSection.style.display = 'block';
+};
+document.getElementById('massModeBtn').onclick = () => {
+  scanMode = 'mass';
+  modeSelect.style.display = 'none';
+  scanSection.style.display = 'block';
+};
+
+// Scan/Upload button logic
+const scanBtn = document.getElementById('scanBtn');
+const uploadBtn = document.getElementById('uploadBtn');
+const cameraInput = document.getElementById('cameraInput');
+const uploadInput = document.getElementById('uploadInput');
+
+scanBtn.onclick = () => cameraInput.click();
+uploadBtn.onclick = () => uploadInput.click();
+
 function handleImageInput(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -24,12 +40,12 @@ function handleImageInput(event) {
     img.style.display = 'block';
     document.getElementById('scanButton').style.display = 'inline-block';
     document.getElementById('ocrResult').textContent = '';
+    document.getElementById('priceResult').textContent = '';
   };
   reader.readAsDataURL(file);
 }
-
-document.getElementById('cameraInput').addEventListener('change', handleImageInput);
-document.getElementById('uploadInput').addEventListener('change', handleImageInput);
+cameraInput.addEventListener('change', handleImageInput);
+uploadInput.addEventListener('change', handleImageInput);
 
 // Handle OCR scan
 const scanButton = document.getElementById('scanButton');
@@ -66,7 +82,6 @@ scanButton.addEventListener('click', async function() {
       }
       return matrix[a.length][b.length];
     }
-
     // Build all valid relic codes (A1-Z99 for each era)
     const validRelicCodes = [];
     ['Meso', 'Lith', 'Neo', 'Axi'].forEach(era => {
@@ -76,7 +91,6 @@ scanButton.addEventListener('click', async function() {
         }
       }
     });
-
     // Improved regex: extract only the main relic code (e.g., 'Neo A10')
     const relicRegex = /(Meso|Lith|Neo|Axi)\s?[A-Z][0-9]+/g;
     const matches = [];
@@ -85,12 +99,9 @@ scanButton.addEventListener('click', async function() {
       matches.push(match[0].replace(/\s+/, ' ')); // Normalize spacing
     }
     // Fuzzy matching for missed relics
-    // Split OCR text into words and try to fuzzy match to valid relic codes
     const words = ocrText.split(/\s+/);
     words.forEach(word => {
-      // Skip if already matched
       if (matches.includes(word)) return;
-      // Try to fuzzy match
       let best = null, bestDist = 3;
       validRelicCodes.forEach(code => {
         const dist = levenshtein(word, code.replace(' ', ''));
@@ -103,28 +114,31 @@ scanButton.addEventListener('click', async function() {
         matches.push(best);
       }
     });
-    // Group into four sections
+    // Grouping logic based on mode
     let grouped = [];
-    for (let i = 0; i < 4; i++) {
-      grouped.push(matches.slice(i * 1, (i + 1) * 1)); // 1 relic per group for now
+    if (scanMode === 'fissure') {
+      for (let i = 0; i < 4; i++) {
+        grouped.push(matches.slice(i * 1, (i + 1) * 1));
+      }
+    } else {
+      // Mass scan: group each found relic individually
+      for (let i = 0; i < matches.length; i++) {
+        grouped.push([matches[i]]);
+      }
     }
     // Display grouped relics
     ocrResult.innerHTML = grouped.map((group, idx) =>
       `<div><strong>Relic ${idx + 1}:</strong> ${group.join(', ') || 'Not found'}</div>`
     ).join('');
-
     // For each found relic, find its drops and display part names and prices
     priceResult.innerHTML = 'Loading prices...';
     const priceSections = await Promise.all(grouped.map(async (group, idx) => {
       const relicCode = group[0];
       if (!relicCode) return `<div><strong>Relic ${idx + 1}:</strong> No relic found</div>`;
-      // Find matching relic in relicsData (ignore suffixes like 'Radiant', 'Exceptional', etc.)
       const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
       if (!relicEntry) return `<div><strong>${relicCode}:</strong> Not found in data</div>`;
-      // For each part, fetch price using WFInfo logic
       const partRows = await Promise.all(relicEntry.rewards.map(async r => {
         const partName = r.item.name;
-        // Use warframeMarket.urlName if present, otherwise generate slug
         let urlName = r.warframeMarket && r.warframeMarket.urlName;
         if (!urlName) {
           urlName = partName
@@ -137,10 +151,8 @@ scanButton.addEventListener('click', async function() {
           if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
           const data = await res.json();
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
-          // Filter for sell+ingame orders
           const sellIngame = data.payload.orders.filter(o => o.order_type === 'sell' && o.user.status === 'ingame');
           if (!sellIngame.length) return `<div>${partName}: <span style='color:#aaa'>No ingame sellers</span></div>`;
-          // Sort by platinum price, take lowest 5
           const lowest = sellIngame.sort((a, b) => a.platinum - b.platinum).slice(0, 5);
           const avg = (lowest.reduce((sum, o) => sum + o.platinum, 0) / lowest.length).toFixed(1);
           return `<div>${partName}: <strong>${avg}p</strong></div>`;
