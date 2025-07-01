@@ -25,9 +25,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   const priceResult = document.getElementById('priceResult');
   const scanModeSelect = document.getElementById('scanModeSelect');
 
+  // Helper to update button visibility based on scan mode
+  function updateScanButtons() {
+    if (scanMode === 'fissure') {
+      scanBtn.style.display = 'inline-block';
+      uploadBtn.style.display = 'none';
+    } else {
+      scanBtn.style.display = 'inline-block';
+      uploadBtn.style.display = 'inline-block';
+    }
+  }
+
   // Update scanMode when dropdown changes
   scanModeSelect.addEventListener('change', () => {
     scanMode = scanModeSelect.value;
+    updateScanButtons();
   });
 
   // Show scan section when a mode is selected (dropdown replaces buttons)
@@ -35,6 +47,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     modeSelect.style.display = 'none';
     scanSection.style.display = 'block';
   });
+
+  // Set initial button visibility
+  updateScanButtons();
 
   scanBtn.onclick = () => cameraInput.click();
   uploadBtn.onclick = () => uploadInput.click();
