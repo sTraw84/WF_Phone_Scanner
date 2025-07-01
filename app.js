@@ -1,9 +1,4 @@
 // ✅ app.js
-let relicsData = [];
-fetch('Relics.json')
-  .then(res => res.json())
-  .then(data => { relicsData = data; })
-  .catch(() => { relicsData = []; });
 
 // Button triggers for camera and upload
 const cameraScanBtn = document.getElementById('cameraScanBtn');
@@ -122,15 +117,7 @@ scanButton.addEventListener('click', async function() {
 
     // Price lookup logic (re-added)
     priceResult.innerHTML = 'Loading prices...';
-    if (!window.relicsData) {
-      try {
-        const res = await fetch('Relics.json');
-        window.relicsData = await res.json();
-      } catch {
-        window.relicsData = [];
-      }
-    }
-    const relicsData = window.relicsData;
+    const relicsData = await getRelicsData();
 
     // Determine if we should throttle (mass scan mode)
     const shouldThrottle = scanMode !== 'fissure';
@@ -276,15 +263,7 @@ manualScanBtn.addEventListener('click', async function() {
   ocrResult.innerHTML = relics.map((r, idx) => `<div><strong>Relic ${idx + 1}:</strong> ${r}</div>`).join('');
   // Price lookup logic (reuse fissure logic)
   priceResult.innerHTML = 'Loading prices...';
-  if (!window.relicsData) {
-    try {
-      const res = await fetch('Relics.json');
-      window.relicsData = await res.json();
-    } catch {
-      window.relicsData = [];
-    }
-  }
-  const relicsData = window.relicsData;
+  const relicsData = await getRelicsData();
   const allFetches = relics.map((relicCode, idx) => {
     const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
     if (!relicEntry) {
@@ -331,4 +310,17 @@ manualScanBtn.addEventListener('click', async function() {
 // Utility: sleep for throttling
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// --- FIX: Ensure Relics.json is loaded before any price lookup ---
+// Move relicsData loading to a single place and always await it before price lookups
+
+let relicsDataPromise = null;
+function getRelicsData() {
+  if (!relicsDataPromise) {
+    relicsDataPromise = fetch('Relics.json')
+      .then(res => res.json())
+      .catch(() => []);
+  }
+  return relicsDataPromise;
 }
