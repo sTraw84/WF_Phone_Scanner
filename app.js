@@ -132,8 +132,10 @@ scanButton.addEventListener('click', async function() {
     ).join('');
     // For each found relic, find its drops and display part names and prices
     priceResult.innerHTML = 'Loading prices...';
-    // Throttle requests to 1 per second
-    async function fetchWithThrottle(tasks, delayMs = 1000) {
+    // Set throttling delays based on scan mode
+    const relicDelay = scanMode === 'mass' ? 2500 : 500; // ms
+    const partDelay = scanMode === 'mass' ? 2500 : 500; // ms
+    async function fetchWithThrottle(tasks, delayMs) {
       const results = [];
       for (const task of tasks) {
         results.push(await task());
@@ -179,9 +181,9 @@ scanButton.addEventListener('click', async function() {
         } catch (e) {
           return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
         }
-      }), 1000); // 1 request per second for parts
+      }), partDelay); // Use partDelay for parts
       return `<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`;
-    }), 1000); // 1 request per second for relics
+    }), relicDelay); // Use relicDelay for relics
     priceResult.innerHTML = priceSections.join('<hr>');
   } catch (err) {
     ocrResult.textContent = 'Error during OCR: ' + err.message;
