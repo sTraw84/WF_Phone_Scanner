@@ -9,7 +9,10 @@
 <body>
   <h1>Warframe Relic Scanner</h1>
   <p>Upload a photo or use your camera to scan your relics!</p>
-  <input type="file" id="imageInput" accept="image/*" capture="environment">
+  <button id="scanBtn">Scan Image</button>
+  <button id="uploadBtn">Upload Image</button>
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+  <input type="file" id="uploadInput" accept="image/*" style="display:none;">
   <div id="imagePreviewContainer">
     <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
   </div>
