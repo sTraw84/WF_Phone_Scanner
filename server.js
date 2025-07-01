@@ -14,7 +14,12 @@ app.get('/api/orders/:item', async (req, res) => {
   let delay = 1000; // Start with 1 second
   while (attempts < maxAttempts) {
     try {
-      const result = await fetch(apiUrl);
+      const result = await fetch(apiUrl, {
+        headers: {
+          'User-Agent': 'sjtrawick@gmail.com',
+          'Accept': 'application/json'
+        }
+      });
       if (!result.ok) {
         const text = await result.text();
         // Log the error status and text for debugging
