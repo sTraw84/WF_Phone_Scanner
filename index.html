@@ -11,10 +11,13 @@
   <div id="modeSelect">
     <div class="example-label">Example:</div>
     <img src="example.jpg" alt="Example" class="example-img" />
-    <button id="fissureModeBtn" class="mode-btn">Fissure Scan</button>
-    <div class="mode-desc">This mode is meant for running fissure relic missions. When the mission loads, open the options menu and take a picture of the users in the top left to capture their relic data.</div>
-    <button id="massModeBtn" class="mode-btn">Mass Scan</button>
-    <div class="mode-desc">This mode is for scanning multiple relics from your inventory or a saved image from your phone.</div>
+    <label for="scanModeSelect" style="display:block; margin:1rem auto 0.5rem auto; text-align:center; font-size:1.1rem;">Select Scan Mode:</label>
+    <select id="scanModeSelect" style="display:block; margin:0 auto 1rem auto; max-width:400px; width:90vw; font-size:1.1rem; padding:0.5rem; border-radius:8px;">
+      <option value="fissure" selected>Fissure Scan</option>
+      <option value="mass">Mass Scan</option>
+    </select>
+    <div class="mode-desc">Fissure Scan: For running fissure relic missions. When the mission loads, open the options menu and take a picture of the users in the top left to capture their relic data.</div>
+    <div class="mode-desc">Mass Scan: For scanning multiple relics from your inventory or a saved image from your phone.</div>
   </div>
   <div id="scanSection" style="display:none;">
     <button id="scanBtn">Scan Image</button>
@@ -22,9 +25,10 @@
     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
     <input type="file" id="uploadInput" accept="image/*" style="display:none;">
     <div id="imagePreviewContainer">
+      <button id="scanButtonTop" style="display:none; margin-bottom:1rem;">Run OCR</button>
       <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
+      <button id="scanButton" style="display:none; margin-top:1rem;">Run OCR</button>
     </div>
-    <button id="scanButton" style="display:none; margin-top:1rem;">Run OCR</button>
     <div id="ocrResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
     <div id="priceResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
     <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
