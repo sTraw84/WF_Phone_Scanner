@@ -8,7 +8,6 @@ app.use(cors());
 
 app.get('/api/orders/:item', async (req, res) => {
   const item = req.params.item;
-  console.log('Proxy endpoint hit:', item);
   const apiUrl = `https://api.warframe.market/v1/items/${item}/orders?platform=pc`;
   let attempts = 0;
   let maxAttempts = 3;
@@ -17,8 +16,8 @@ app.get('/api/orders/:item', async (req, res) => {
     try {
       const result = await fetch(apiUrl);
       if (!result.ok) {
-        // Log the error status and text
         const text = await result.text();
+        // Log the error status and text for debugging
         console.error(`Market API error: ${result.status} - ${result.statusText} - ${text}`);
         // If rate limited, retry with backoff
         if (result.status === 429) {
