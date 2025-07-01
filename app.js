@@ -6,7 +6,15 @@ fetch('Relics.json')
   .catch(() => { relicsData = []; });
 
 // Handle image input and preview
-document.getElementById('imageInput').addEventListener('change', function(event) {
+document.getElementById('scanBtn').addEventListener('click', function() {
+  document.getElementById('cameraInput').click();
+});
+document.getElementById('uploadBtn').addEventListener('click', function() {
+  document.getElementById('uploadInput').click();
+});
+
+// Use the same handler for both inputs
+function handleImageInput(event) {
   const file = event.target.files[0];
   if (!file) return;
   const reader = new FileReader();
@@ -18,7 +26,10 @@ document.getElementById('imageInput').addEventListener('change', function(event)
     document.getElementById('ocrResult').textContent = '';
   };
   reader.readAsDataURL(file);
-});
+}
+
+document.getElementById('cameraInput').addEventListener('change', handleImageInput);
+document.getElementById('uploadInput').addEventListener('change', handleImageInput);
 
 // Handle OCR scan
 const scanButton = document.getElementById('scanButton');
