@@ -8,6 +8,7 @@ app.use(cors());
 
 app.get('/api/orders/:item', async (req, res) => {
   const item = req.params.item;
+  console.log('Proxy endpoint hit:', item);
   const apiUrl = `https://api.warframe.market/v1/items/${item}/orders?platform=pc`;
   let attempts = 0;
   let maxAttempts = 3;
