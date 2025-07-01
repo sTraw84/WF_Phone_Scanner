@@ -21,18 +21,31 @@
     <div style="margin-top: 0.7rem;">
       <button id="cameraScanBtn">Camera Scan</button>
       <button id="uploadBtn">Upload Image</button>
+      <button id="manualEntryBtn">Manual Entry</button>
     </div>
+    <!-- Camera/Upload Inputs -->
     <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
     <input type="file" id="uploadInput" accept="image/*" style="display:none;">
   </div>
+  <!-- Image Preview -->
   <div id="imagePreviewContainer">
-    <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
+    <img id="imagePreview" style="display:none; max-width:100%;">
   </div>
-  <button id="scanButton" style="display:none; margin-top:1rem;">Run Scan</button>
-  <div id="ocrResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
-  <div id="priceResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
+  <!-- Scan Button -->
+  <button id="scanButton" style="display:none;">Scan</button>
+  <!-- Manual Entry Container -->
+  <div id="manualEntryContainer" style="display:none; margin-top:1em;">
+    <label>Relic 1: <input type="text" class="manual-relic" placeholder="e.g. Neo N9"></label><br>
+    <label>Relic 2: <input type="text" class="manual-relic" placeholder="e.g. Lith S6"></label><br>
+    <label>Relic 3: <input type="text" class="manual-relic" placeholder="e.g. Meso F2"></label><br>
+    <label>Relic 4: <input type="text" class="manual-relic" placeholder="e.g. Axi V8"></label><br>
+    <button id="manualScanBtn">Scan These Relics</button>
+  </div>
+  <!-- Results -->
+  <div id="ocrResult"></div>
+  <div id="priceResult"></div>
   <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
 </body>
-</html> 
+</html>
