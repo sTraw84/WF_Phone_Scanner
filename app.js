@@ -13,13 +13,11 @@ let scanMode = null;
 const modeSelect = document.getElementById('modeSelect');
 const scanSection = document.getElementById('scanSection');
 document.getElementById('fissureModeBtn').onclick = () => {
-  document.getElementById('debug').textContent = "Fissure Scan button clicked";
   scanMode = 'fissure';
   modeSelect.style.display = 'none';
   scanSection.style.display = 'block';
 };
 document.getElementById('massModeBtn').onclick = () => {
-  document.getElementById('debug').textContent = "Mass Scan button clicked";
   scanMode = 'mass';
   modeSelect.style.display = 'none';
   scanSection.style.display = 'block';
@@ -134,8 +132,6 @@ scanButton.addEventListener('click', async function() {
     ocrResult.innerHTML = grouped.map((group, idx) =>
       `<div><strong>Relic ${idx + 1}:</strong> ${group.join(', ') || 'Not found'}</div>`
     ).join('');
-    // For each found relic, find its drops and display part names and prices
-    priceResult.innerHTML = 'Loading prices...';
     // Set throttling delays based on scan mode
     const relicDelay = scanMode === 'mass' ? 2500 : 500; // ms
     const partDelay = scanMode === 'mass' ? 2500 : 500; // ms
