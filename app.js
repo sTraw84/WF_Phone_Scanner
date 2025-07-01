@@ -131,9 +131,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       ocrResult.innerHTML = grouped.map((group, idx) =>
         `<div><strong>Relic ${idx + 1}:</strong> ${group.join(', ') || 'Not found'}</div>`
       ).join('');
-      // Set throttling delays based on scan mode
-      const relicDelay = scanMode === 'mass' ? 2500 : 500; // ms
-      const partDelay = scanMode === 'mass' ? 2500 : 500; // ms
+      // Set throttling delays for safety and speed
+      const relicDelay = 1000; // 1 sec per relic
+      const partDelay = 1000;  // 1 sec per part
       async function fetchWithThrottle(tasks, delayMs) {
         const results = [];
         for (const task of tasks) {
@@ -149,20 +149,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!relicEntry) return `<div><strong>${relicCode}:</strong> Not found in data</div>`;
         const partRows = await fetchWithThrottle(relicEntry.rewards.map(r => async () => {
           const partName = r.item.name;
-          let urlName = null;
-          // Try to get the slug from the fetched slugMap
-          if (slugMap[partName.toLowerCase()]) {
-            urlName = slugMap[partName.toLowerCase()];
-          } else if (r.warframeMarket && r.warframeMarket.urlName) {
-            urlName = r.warframeMarket.urlName;
-          } else {
-            urlName = partName
-              .toLowerCase()
-              .replace(/\s+/g, '_')
-              .replace(/[^a-z0-9_]/g, '');
-          }
+          const lowerName = partName.toLowerCase();
+          let urlName = slugMap[lowerName] || findBestSlug(lowerName, slugMap);
           try {
-            const res = await fetch(`https://wf-phone-scanner.onrender.com/api/orders/${urlName}`);
+            const res = await fetch(`https://wf-phone-scanner.onrender.com/api/orders/${urlName}`,
+              { headers: { 'User-Agent': 'sjtrawick@gmail.com', 'Accept': 'application/json' } });
             if (res.status === 404) {
               return `<div>${partName}: <span style='color:#aaa'>Not tradable on market</span></div>`;
             }
@@ -180,9 +171,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           } catch (e) {
             return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
           }
-        }), partDelay); // Use partDelay for parts
+        }), partDelay);
         return `<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`;
-      }), relicDelay); // Use relicDelay for relics
+      }), relicDelay);
       priceResult.innerHTML = priceSections.join('<hr>');
     } catch (err) {
       ocrResult.textContent = 'Error during OCR: ' + err.message;
@@ -197,7 +188,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cache && cacheTime && Date.now() - cacheTime < 24 * 60 * 60 * 1000) {
       return JSON.parse(cache);
     }
-    const res = await fetch('https://api.warframe.market/v1/items');
+    const res = await fetch('https://api.warframe.market/v1/items', {
+      headers: {
+        'User-Agent': 'your_email@example.com',
+        'Accept': 'application/json'
+      }
+    });
     const data = await res.json();
     const map = {};
     data.payload.items.forEach(item => {
