@@ -1,3 +1,5 @@
+document.getElementById('debug').textContent = "app.js loaded";
+
 // Load relics data
 let relicsData = [];
 fetch('Relics.json')
@@ -11,9 +13,15 @@ let scanMode = null;
 const modeSelect = document.getElementById('modeSelect');
 const scanSection = document.getElementById('scanSection');
 document.getElementById('fissureModeBtn').onclick = () => {
+  document.getElementById('debug').textContent = "Fissure Scan button clicked";
+  scanMode = 'fissure';
+  modeSelect.style.display = 'none';
   scanSection.style.display = 'block';
 };
 document.getElementById('massModeBtn').onclick = () => {
+  document.getElementById('debug').textContent = "Mass Scan button clicked";
+  scanMode = 'mass';
+  modeSelect.style.display = 'none';
   scanSection.style.display = 'block';
 };
 
