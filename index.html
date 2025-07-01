@@ -8,31 +8,18 @@
 </head>
 <body>
   <h1>Warframe Relic Scanner</h1>
-  <div id="modeSelect">
-    <div class="example-label">Example:</div>
-    <img src="example.jpg" alt="Example" class="example-img" />
-    <label for="scanModeSelect" style="display:block; margin:1rem auto 0.5rem auto; text-align:center; font-size:1.1rem;">Select Scan Mode:</label>
-    <select id="scanModeSelect" style="display:block; margin:0 auto 1rem auto; max-width:400px; width:90vw; font-size:1.1rem; padding:0.5rem; border-radius:8px;">
-      <option value="fissure" selected>Fissure Scan</option>
-      <option value="mass">Mass Scan</option>
-    </select>
-    <div class="mode-desc">Fissure Scan: For running fissure relic missions. When the mission loads, open the options menu and take a picture of the users in the top left to capture their relic data.</div>
-    <div class="mode-desc">Mass Scan: For scanning multiple relics from your inventory or a saved image from your phone.</div>
+  <p>Upload a photo or use your camera to scan your relics!</p>
+  <button id="scanBtn">Scan Image</button>
+  <button id="uploadBtn">Upload Image</button>
+  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
+  <input type="file" id="uploadInput" accept="image/*" style="display:none;">
+  <div id="imagePreviewContainer">
+    <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
   </div>
-  <div id="scanSection" style="display:none;">
-    <button id="scanBtn">Scan Image</button>
-    <button id="uploadBtn">Upload Image</button>
-    <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display:none;">
-    <input type="file" id="uploadInput" accept="image/*" style="display:none;">
-    <div id="imagePreviewContainer">
-      <button id="scanButtonTop" style="display:none; margin-bottom:1rem;">Run OCR</button>
-      <img id="imagePreview" src="" alt="Image preview" style="display:none; max-width:100%; height:auto;" />
-      <button id="scanButton" style="display:none; margin-top:1rem;">Run OCR</button>
-    </div>
-    <div id="ocrResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
-    <div id="priceResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
-    <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
-  </div>
+  <button id="scanButton" style="display:none; margin-top:1rem;">Scan Image</button>
+  <div id="ocrResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
+  <div id="priceResult" style="margin-top:1.5rem; white-space:pre-wrap;"></div>
+  <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
 </body>
