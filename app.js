@@ -159,7 +159,8 @@ scanButton.addEventListener('click', async function() {
                 .toLowerCase()
                 .replace(/\s+/g, '_')
                 .replace(/&/g, 'and')
-                .replace(/[^a-z0-9_]/g, '');
+                .replace(/[^a-z0-9_]/g, '')
+                .replace(/_blueprint$/, ''); // <-- Remove trailing _blueprint
             }
             try {
               const res = await fetch(`/api/orders/${urlName}`);
@@ -208,7 +209,8 @@ scanButton.addEventListener('click', async function() {
               .toLowerCase()
               .replace(/\s+/g, '_')
               .replace(/&/g, 'and')
-              .replace(/[^a-z0-9_]/g, '');
+              .replace(/[^a-z0-9_]/g, '')
+              .replace(/_blueprint$/, ''); // <-- Remove trailing _blueprint
           }
           try {
             const res = await fetch(`/api/orders/${urlName}`);
@@ -298,7 +300,8 @@ manualScanBtn.addEventListener('click', async function() {
             .toLowerCase()
             .replace(/\s+/g, '_')
             .replace(/&/g, 'and')
-            .replace(/[^a-z0-9_]/g, '');
+            .replace(/[^a-z0-9_]/g, '')
+            .replace(/_blueprint$/, ''); // <-- Remove trailing _blueprint
         }
         try {
           const res = await fetch(`/api/orders/${urlName}`);
