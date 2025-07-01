@@ -132,12 +132,21 @@ scanButton.addEventListener('click', async function() {
     ).join('');
     // For each found relic, find its drops and display part names and prices
     priceResult.innerHTML = 'Loading prices...';
-    const priceSections = await Promise.all(grouped.map(async (group, idx) => {
+    // Throttle requests to 1 per second
+    async function fetchWithThrottle(tasks, delayMs = 1000) {
+      const results = [];
+      for (const task of tasks) {
+        results.push(await task());
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+      return results;
+    }
+    const priceSections = await fetchWithThrottle(grouped.map(group => async () => {
       const relicCode = group[0];
-      if (!relicCode) return `<div><strong>Relic ${idx + 1}:</strong> No relic found</div>`;
+      if (!relicCode) return `<div><strong>Relic ${grouped.indexOf(group) + 1}:</strong> No relic found</div>`;
       const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
       if (!relicEntry) return `<div><strong>${relicCode}:</strong> Not found in data</div>`;
-      const partRows = await Promise.all(relicEntry.rewards.map(async r => {
+      const partRows = await fetchWithThrottle(relicEntry.rewards.map(r => async () => {
         const partName = r.item.name;
         let urlName = null;
         // Try to get the slug from the fetched slugMap
@@ -153,6 +162,12 @@ scanButton.addEventListener('click', async function() {
         }
         try {
           const res = await fetch(`https://wf-phone-scanner.onrender.com/api/orders/${urlName}`);
+          if (res.status === 404) {
+            return `<div>${partName}: <span style='color:#aaa'>Not tradable on market</span></div>`;
+          }
+          if (res.status === 429) {
+            return `<div>${partName}: <span style='color:#f88'>Rate limited, please try again later</span></div>`;
+          }
           if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
           const data = await res.json();
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
@@ -164,9 +179,9 @@ scanButton.addEventListener('click', async function() {
         } catch (e) {
           return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
         }
-      }));
+      }), 1000); // 1 request per second for parts
       return `<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`;
-    }));
+    }), 1000); // 1 request per second for relics
     priceResult.innerHTML = priceSections.join('<hr>');
   } catch (err) {
     ocrResult.textContent = 'Error during OCR: ' + err.message;
@@ -174,15 +189,64 @@ scanButton.addEventListener('click', async function() {
   }
 });
 
-// Fetch all item slugs from Warframe Market API
-let slugMap = {};
-fetch('https://api.warframe.market/v1/items')
-  .then(res => res.json())
-  .then(data => {
-    if (data && data.payload && data.payload.items) {
-      data.payload.items.forEach(item => {
-        slugMap[item.item_name.toLowerCase()] = item.url_name;
-      });
+// 1. Fetch and cache slugs
+async function getSlugMap() {
+  const cache = localStorage.getItem('slugMap');
+  const cacheTime = localStorage.getItem('slugMapTime');
+  if (cache && cacheTime && Date.now() - cacheTime < 24 * 60 * 60 * 1000) {
+    return JSON.parse(cache);
+  }
+  const res = await fetch('https://api.warframe.market/v1/items');
+  const data = await res.json();
+  const map = {};
+  data.payload.items.forEach(item => {
+    map[item.item_name.toLowerCase()] = item.url_name;
+  });
+  localStorage.setItem('slugMap', JSON.stringify(map));
+  localStorage.setItem('slugMapTime', Date.now());
+  return map;
+}
+
+// 2. Fuzzy matching (Levenshtein)
+function levenshtein(a, b) {
+  const matrix = Array.from({ length: a.length + 1 }, () => []);
+  for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
+  for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      if (a[i - 1] === b[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j - 1] + 1
+        );
+      }
     }
-  })
-  .catch(() => { slugMap = {}; }); 
+  }
+  return matrix[a.length][b.length];
+}
+
+// 3. Find best slug for a part name
+function findBestSlug(partName, slugMap) {
+  const lower = partName.toLowerCase();
+  if (slugMap[lower]) return slugMap[lower];
+  // Fuzzy match
+  let best = null, bestDist = 3;
+  for (const name in slugMap) {
+    const dist = levenshtein(lower, name);
+    if (dist < bestDist) {
+      best = name;
+      bestDist = dist;
+    }
+  }
+  if (best) return slugMap[best];
+  // Fallback
+  return lower.replace(/\\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+}
+
+// 4. Usage in your app
+const slugMap = await getSlugMap();
+const slug = findBestSlug(ocrPartName, slugMap);
+// Use slug in your API call 
