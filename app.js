@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     .then(data => { relicsData = data; })
     .catch(() => { relicsData = []; });
 
-  let scanMode = null;
+  let scanMode = 'fissure'; // default
 
   const modeSelect = document.getElementById('modeSelect');
   const scanSection = document.getElementById('scanSection');
@@ -19,20 +19,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const cameraInput = document.getElementById('cameraInput');
   const uploadInput = document.getElementById('uploadInput');
   const scanButton = document.getElementById('scanButton');
+  const scanButtonTop = document.getElementById('scanButtonTop');
   const imagePreview = document.getElementById('imagePreview');
   const ocrResult = document.getElementById('ocrResult');
   const priceResult = document.getElementById('priceResult');
+  const scanModeSelect = document.getElementById('scanModeSelect');
 
-  document.getElementById('fissureModeBtn').onclick = () => {
-    scanMode = 'fissure';
+  // Update scanMode when dropdown changes
+  scanModeSelect.addEventListener('change', () => {
+    scanMode = scanModeSelect.value;
+  });
+
+  // Show scan section when a mode is selected (dropdown replaces buttons)
+  scanModeSelect.addEventListener('change', () => {
     modeSelect.style.display = 'none';
     scanSection.style.display = 'block';
-  };
-  document.getElementById('massModeBtn').onclick = () => {
-    scanMode = 'mass';
-    modeSelect.style.display = 'none';
-    scanSection.style.display = 'block';
-  };
+  });
 
   scanBtn.onclick = () => cameraInput.click();
   uploadBtn.onclick = () => uploadInput.click();
@@ -45,6 +47,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       imagePreview.src = e.target.result;
       imagePreview.style.display = 'block';
       scanButton.style.display = 'inline-block';
+      scanButtonTop.style.display = 'inline-block';
       ocrResult.textContent = '';
       priceResult.textContent = '';
     };
@@ -53,7 +56,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   cameraInput.addEventListener('change', handleImageInput);
   uploadInput.addEventListener('change', handleImageInput);
 
-  scanButton.addEventListener('click', async () => {
+  // Both Run OCR buttons trigger the same scan
+  async function runOcrScan() {
     ocrResult.textContent = 'Scanning... Please wait.';
     priceResult.textContent = '';
     try {
@@ -135,7 +139,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       ocrResult.textContent = 'OCR Error: ' + err.message;
       priceResult.textContent = '';
     }
-  });
+  }
+  scanButton.addEventListener('click', runOcrScan);
+  scanButtonTop.addEventListener('click', runOcrScan);
 
   async function getSlugMap() {
     const cache = localStorage.getItem('slugMap');
