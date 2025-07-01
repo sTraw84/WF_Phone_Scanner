@@ -10,6 +10,8 @@ const PORT = process.env.PORT || 3000;
 // Cache results for 5 minutes
 const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
+app.set('trust proxy', 1); // Trust first proxy (required for rate limiting on Render)
+
 app.use(cors());
 
 // Rate limiting to protect your server and the Warframe.Market API
