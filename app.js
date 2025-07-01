@@ -139,8 +139,13 @@ scanButton.addEventListener('click', async function() {
       if (!relicEntry) return `<div><strong>${relicCode}:</strong> Not found in data</div>`;
       const partRows = await Promise.all(relicEntry.rewards.map(async r => {
         const partName = r.item.name;
-        let urlName = r.warframeMarket && r.warframeMarket.urlName;
-        if (!urlName) {
+        let urlName = null;
+        // Try to get the slug from the fetched slugMap
+        if (slugMap[partName.toLowerCase()]) {
+          urlName = slugMap[partName.toLowerCase()];
+        } else if (r.warframeMarket && r.warframeMarket.urlName) {
+          urlName = r.warframeMarket.urlName;
+        } else {
           urlName = partName
             .toLowerCase()
             .replace(/\s+/g, '_')
@@ -167,4 +172,17 @@ scanButton.addEventListener('click', async function() {
     ocrResult.textContent = 'Error during OCR: ' + err.message;
     priceResult.textContent = '';
   }
-}); 
+});
+
+// Fetch all item slugs from Warframe Market API
+let slugMap = {};
+fetch('https://api.warframe.market/v1/items')
+  .then(res => res.json())
+  .then(data => {
+    if (data && data.payload && data.payload.items) {
+      data.payload.items.forEach(item => {
+        slugMap[item.item_name.toLowerCase()] = item.url_name;
+      });
+    }
+  })
+  .catch(() => { slugMap = {}; }); 
