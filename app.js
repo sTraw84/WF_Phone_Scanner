@@ -11,13 +11,9 @@ let scanMode = null;
 const modeSelect = document.getElementById('modeSelect');
 const scanSection = document.getElementById('scanSection');
 document.getElementById('fissureModeBtn').onclick = () => {
-  scanMode = 'fissure';
-  modeSelect.style.display = 'none';
   scanSection.style.display = 'block';
 };
 document.getElementById('massModeBtn').onclick = () => {
-  scanMode = 'mass';
-  modeSelect.style.display = 'none';
   scanSection.style.display = 'block';
 };
 
