@@ -7,6 +7,9 @@ const NodeCache = require('node-cache');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Serve static files from the project root
+app.use(express.static(__dirname));
+
 // Cache results for 5 minutes
 const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
