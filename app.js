@@ -147,7 +147,7 @@ async function getSlugMap() {
     return SLUG_MAP;
   }
   // Fetch from API
-  const resp = await fetch('https://api.warframe.market/v1/items');
+  const resp = await fetch(`${API_BASE_URL}/api/items`);
   const items = (await resp.json()).payload.items;
   SLUG_MAP = {};
   items.forEach(item => {
