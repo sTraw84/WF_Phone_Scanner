@@ -1,17 +1,21 @@
-// ✅ app.js
+// --- Warframe Relic Scanner: Minimal, Robust, and Fast ---
+// Uses local Relics.json for structure, Warframe Market API for prices, and a cached slug map for lookups.
 
-// Button triggers for camera and upload
+// UI Elements
 const cameraScanBtn = document.getElementById('cameraScanBtn');
 const uploadBtn = document.getElementById('uploadBtn');
 const cameraInput = document.getElementById('cameraInput');
 const uploadInput = document.getElementById('uploadInput');
+const scanButton = document.getElementById('scanButton');
+const manualEntryBtn = document.getElementById('manualEntryBtn');
+const manualEntryContainer = document.getElementById('manualEntryContainer');
+const manualScanBtn = document.getElementById('manualScanBtn');
 
-cameraScanBtn.addEventListener('click', function() {
-  cameraInput.click();
-});
-uploadBtn.addEventListener('click', function() {
-  uploadInput.click();
-});
+// --- Image Upload/Camera Logic ---
+cameraScanBtn.addEventListener('click', () => cameraInput.click());
+uploadBtn.addEventListener('click', () => uploadInput.click());
+cameraInput.addEventListener('change', handleImageInput);
+uploadInput.addEventListener('change', handleImageInput);
 
 function handleImageInput(event) {
   const file = event.target.files[0];
@@ -21,216 +25,14 @@ function handleImageInput(event) {
     const img = document.getElementById('imagePreview');
     img.src = e.target.result;
     img.style.display = 'block';
-    document.getElementById('scanButton').style.display = 'inline-block';
+    scanButton.style.display = 'inline-block';
     document.getElementById('ocrResult').textContent = '';
     document.getElementById('priceResult').textContent = '';
   };
   reader.readAsDataURL(file);
 }
-cameraInput.addEventListener('change', handleImageInput);
-uploadInput.addEventListener('change', handleImageInput);
 
-// Handle OCR scan
-const scanButton = document.getElementById('scanButton');
-scanButton.addEventListener('click', async function() {
-  const img = document.getElementById('imagePreview');
-  const ocrResult = document.getElementById('ocrResult');
-  const priceResult = document.getElementById('priceResult');
-  const scanMode = document.getElementById('scanMode').value;
-  ocrResult.textContent = 'Scanning... Please wait.';
-  priceResult.textContent = '';
-  try {
-    const result = await Tesseract.recognize(
-      img.src,
-      'eng',
-      { logger: m => { /* Optionally log progress */ } }
-    );
-    const ocrText = result.data.text.trim();
-    // Utility: Levenshtein distance
-    function levenshtein(a, b) {
-      const matrix = Array.from({ length: a.length + 1 }, () => []);
-      for (let i = 0; i <= a.length; i++) matrix[i][0] = i;
-      for (let j = 0; j <= b.length; j++) matrix[0][j] = j;
-      for (let i = 1; i <= a.length; i++) {
-        for (let j = 1; j <= b.length; j++) {
-          if (a[i - 1] === b[j - 1]) {
-            matrix[i][j] = matrix[i - 1][j - 1];
-          } else {
-            matrix[i][j] = Math.min(
-              matrix[i - 1][j] + 1,
-              matrix[i][j - 1] + 1,
-              matrix[i - 1][j - 1] + 1
-            );
-          }
-        }
-      }
-      return matrix[a.length][b.length];
-    }
-    // Build all valid relic codes (A1-Z99 for each era)
-    const validRelicCodes = [];
-    ['Meso', 'Lith', 'Neo', 'Axi'].forEach(era => {
-      for (let l = 65; l <= 90; l++) { // A-Z
-        for (let n = 1; n <= 99; n++) {
-          validRelicCodes.push(`${era} ${String.fromCharCode(l)}${n}`);
-        }
-      }
-    });
-    // Improved regex: extract only the main relic code (e.g., 'Neo A10')
-    const relicRegex = /(Meso|Lith|Neo|Axi)\s?[A-Z]+\d+/gi;
-    const matches = [];
-    let match;
-    while ((match = relicRegex.exec(ocrText)) !== null) {
-      matches.push(match[0].replace(/\s+/, ' ')); // Normalize spacing
-    }
-    // Fuzzy matching for missed relics
-    const words = ocrText.split(/\s+/);
-    words.forEach(word => {
-      if (matches.includes(word)) return;
-      let best = null, bestDist = 3;
-      validRelicCodes.forEach(code => {
-        const dist = levenshtein(word, code.replace(' ', ''));
-        if (dist < bestDist) {
-          best = code;
-          bestDist = dist;
-        }
-      });
-      if (best && bestDist <= 1 && !matches.includes(best)) {
-        matches.push(best);
-      }
-    });
-    // Group relics based on scan mode
-    let grouped = [];
-    if (scanMode === 'fissure') {
-      for (let i = 0; i < 4; i++) {
-        grouped.push(matches.slice(i * 1, (i + 1) * 1)); // 1 relic per group for up to 4
-      }
-    } else {
-      // Mass scan: group all found relics individually
-      for (let i = 0; i < matches.length; i++) {
-        grouped.push([matches[i]]);
-      }
-    }
-    // Display grouped relics
-    ocrResult.innerHTML = grouped.map((group, idx) =>
-      `<div><strong>Relic ${idx + 1}:</strong> ${group.join(', ') || 'Not found'}</div>`
-    ).join('');
-
-    // Price lookup logic (re-added)
-    priceResult.innerHTML = 'Loading prices...';
-    const relicsData = await getRelicsData();
-
-    // Determine if we should throttle (mass scan mode)
-    const shouldThrottle = scanMode !== 'fissure';
-
-    const priceSections = [];
-
-    if (scanMode === 'fissure') {
-      // 4-relic mode: parallelize all part fetches for speed
-      const allFetches = grouped.map((group, idx) => {
-        const relicCode = group[0];
-        if (!relicCode) {
-          return Promise.resolve(`<div><strong>Relic ${idx + 1}:</strong> No relic found</div>`);
-        }
-        const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
-        if (!relicEntry) {
-          return Promise.resolve(`<div><strong>${relicCode}:</strong> Not found in data</div>`);
-        }
-        // Fetch all parts in parallel (except Forma Blueprint)
-        const partFetches = relicEntry.rewards
-          .filter(r => !r.item.name.toLowerCase().includes('forma blueprint'))
-          .map(async r => {
-            const partName = r.item.name;
-            let urlName = r.warframeMarket && r.warframeMarket.urlName;
-            if (!urlName) {
-              urlName = getSlugForPart(partName);
-            }
-            if (!urlName) {
-              console.warn(`Missing slug for ${partName}`);
-              return `<div>${partName}: <span style='color:#f88'>Slug not found</span></div>`;
-            }
-            try {
-              const res = await fetch(`/api/orders/${urlName}`);
-              if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
-              const data = await res.json();
-              if (!data.payload || !data.payload.orders) throw new Error('No orders');
-              const sellIngame = data.payload.orders.filter(o => o.order_type === 'sell' && o.user.status === 'ingame');
-              if (!sellIngame.length) {
-                return `<div>${partName}: <span style='color:#aaa'>No ingame sellers</span></div>`;
-              } else {
-                const lowest = sellIngame.sort((a, b) => a.platinum - b.platinum).slice(0, 5);
-                const avg = (lowest.reduce((sum, o) => sum + o.platinum, 0) / lowest.length).toFixed(1);
-                return `<div>${partName}: <strong>${avg}p</strong></div>`;
-              }
-            } catch (e) {
-              return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
-            }
-          });
-        return Promise.all(partFetches).then(partRows =>
-          `<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`
-        );
-      });
-      const allResults = await Promise.all(allFetches);
-      priceResult.innerHTML = allResults.join('<hr>');
-    } else {
-      // Mass scan: sequential with throttling (as you already have)
-      for (let idx = 0; idx < grouped.length; idx++) {
-        const group = grouped[idx];
-        const relicCode = group[0];
-        if (!relicCode) {
-          priceSections.push(`<div><strong>Relic ${idx + 1}:</strong> No relic found</div>`);
-          continue;
-        }
-        const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
-        if (!relicEntry) {
-          priceSections.push(`<div><strong>${relicCode}:</strong> Not found in data</div>`);
-          continue;
-        }
-        const partRows = [];
-        for (const r of relicEntry.rewards) {
-          const partName = r.item.name;
-          if (partName.toLowerCase().includes('forma blueprint')) continue;
-          let urlName = r.warframeMarket && r.warframeMarket.urlName;
-          if (!urlName) {
-            urlName = getSlugForPart(partName);
-          }
-          if (!urlName) {
-            console.warn(`Missing slug for ${partName}`);
-            continue; // or return if inside a map
-          }
-          try {
-            const res = await fetch(`/api/orders/${urlName}`);
-            if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
-            const data = await res.json();
-            if (!data.payload || !data.payload.orders) throw new Error('No orders');
-            const sellIngame = data.payload.orders.filter(o => o.order_type === 'sell' && o.user.status === 'ingame');
-            if (!sellIngame.length) {
-              partRows.push(`<div>${partName}: <span style='color:#aaa'>No ingame sellers</span></div>`);
-            } else {
-              const lowest = sellIngame.sort((a, b) => a.platinum - b.platinum).slice(0, 5);
-              const avg = (lowest.reduce((sum, o) => sum + o.platinum, 0) / lowest.length).toFixed(1);
-              partRows.push(`<div>${partName}: <strong>${avg}p</strong></div>`);
-            }
-          } catch (e) {
-            partRows.push(`<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`);
-          }
-          await sleep(250); // Throttle for mass scan
-        }
-        priceSections.push(`<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`);
-      }
-      priceResult.innerHTML = priceSections.join('<hr>');
-    }
-  } catch (err) {
-    ocrResult.textContent = 'Error during OCR: ' + err.message;
-    priceResult.textContent = '';
-  }
-});
-
-// Manual entry logic
-const manualEntryBtn = document.getElementById('manualEntryBtn');
-const manualEntryContainer = document.getElementById('manualEntryContainer');
-const manualScanBtn = document.getElementById('manualScanBtn');
-
-// Show manual entry, hide others
+// --- Manual Entry Logic ---
 manualEntryBtn.addEventListener('click', function() {
   manualEntryContainer.style.display = 'block';
   document.getElementById('imagePreview').style.display = 'none';
@@ -239,7 +41,6 @@ manualEntryBtn.addEventListener('click', function() {
   document.getElementById('priceResult').textContent = '';
 });
 
-// Manual scan logic
 manualScanBtn.addEventListener('click', async function() {
   const ocrResult = document.getElementById('ocrResult');
   const priceResult = document.getElementById('priceResult');
@@ -257,26 +58,111 @@ manualScanBtn.addEventListener('click', async function() {
     ocrResult.textContent = 'Please enter valid relic codes (e.g. Neo N9).';
     return;
   }
-  // Display entered relics
   ocrResult.innerHTML = relics.map((r, idx) => `<div><strong>Relic ${idx + 1}:</strong> ${r}</div>`).join('');
-  // Price lookup logic (reuse fissure logic)
   priceResult.innerHTML = 'Loading prices...';
+  await showRelicPrices(relics, priceResult);
+});
+
+// --- OCR Scan Logic ---
+scanButton.addEventListener('click', async function() {
+  const img = document.getElementById('imagePreview');
+  const ocrResult = document.getElementById('ocrResult');
+  const priceResult = document.getElementById('priceResult');
+  const scanMode = document.getElementById('scanMode').value;
+  ocrResult.textContent = 'Scanning... Please wait.';
+  priceResult.textContent = '';
+  try {
+    const result = await Tesseract.recognize(img.src, 'eng');
+    const ocrText = result.data.text.trim();
+    // Extract relic codes
+    const relicRegex = /(Meso|Lith|Neo|Axi)\s?[A-Z]+\d+/gi;
+    const matches = [];
+    let match;
+    while ((match = relicRegex.exec(ocrText)) !== null) {
+      matches.push(match[0].replace(/\s+/, ' '));
+    }
+    // Fuzzy fallback for missed relics (optional, can be removed for minimalism)
+    // ...
+    // Group relics
+    let grouped = [];
+    if (scanMode === 'fissure') {
+      for (let i = 0; i < 4; i++) grouped.push(matches.slice(i, i + 1));
+    } else {
+      for (let i = 0; i < matches.length; i++) grouped.push([matches[i]]);
+    }
+    ocrResult.innerHTML = grouped.map((group, idx) => `<div><strong>Relic ${idx + 1}:</strong> ${group.join(', ') || 'Not found'}</div>`).join('');
+    priceResult.innerHTML = 'Loading prices...';
+    await showRelicPrices(grouped.map(g => g[0]), priceResult);
+  } catch (err) {
+    ocrResult.textContent = 'Error during OCR: ' + err.message;
+    priceResult.textContent = '';
+  }
+});
+
+// --- Relics Data and Slug Map ---
+let RELICS_DATA = null;
+let SLUG_MAP = null;
+const SLUG_CACHE_KEY = 'wf_slug_map';
+const SLUG_CACHE_TIME_KEY = 'wf_slug_map_time';
+const SLUG_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 1 week
+
+async function getRelicsData() {
+  if (RELICS_DATA) return RELICS_DATA;
+  const res = await fetch('Relics.json');
+  RELICS_DATA = await res.json();
+  return RELICS_DATA;
+}
+
+function normalizePartName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+async function getSlugMap() {
+  // Check cache
+  const cached = localStorage.getItem(SLUG_CACHE_KEY);
+  const cachedTime = localStorage.getItem(SLUG_CACHE_TIME_KEY);
+  if (cached && cachedTime && Date.now() - parseInt(cachedTime) < SLUG_CACHE_MAX_AGE) {
+    SLUG_MAP = JSON.parse(cached);
+    return SLUG_MAP;
+  }
+  // Fetch from API
+  const resp = await fetch('https://api.warframe.market/v1/items');
+  const items = (await resp.json()).payload.items;
+  SLUG_MAP = {};
+  items.forEach(item => {
+    SLUG_MAP[normalizePartName(item.item_name)] = item.url_name;
+  });
+  localStorage.setItem(SLUG_CACHE_KEY, JSON.stringify(SLUG_MAP));
+  localStorage.setItem(SLUG_CACHE_TIME_KEY, Date.now().toString());
+  return SLUG_MAP;
+}
+
+function getSlugForPart(partName, slugMap) {
+  const norm = normalizePartName(partName);
+  return slugMap[norm] || null;
+}
+
+// --- Price Lookup and Display ---
+async function showRelicPrices(relicCodes, priceResultElem) {
   const relicsData = await getRelicsData();
-  const allFetches = relics.map((relicCode, idx) => {
+  const slugMap = await getSlugMap();
+  const priceSections = [];
+  for (const relicCode of relicCodes) {
+    if (!relicCode) {
+      priceSections.push(`<div><strong>Relic:</strong> Not found</div>`);
+      continue;
+    }
     const relicEntry = relicsData.find(r => r.name && r.name.startsWith(relicCode));
     if (!relicEntry) {
-      return Promise.resolve(`<div><strong>${relicCode}:</strong> Not found in data</div>`);
+      priceSections.push(`<div><strong>${relicCode}:</strong> Not found in data</div>`);
+      continue;
     }
-    const partFetches = relicEntry.rewards
+    const partRows = await Promise.all(relicEntry.rewards
       .filter(r => !r.item.name.toLowerCase().includes('forma blueprint'))
       .map(async r => {
         const partName = r.item.name;
-        let urlName = r.warframeMarket && r.warframeMarket.urlName;
+        const urlName = r.warframeMarket && r.warframeMarket.urlName ? r.warframeMarket.urlName : getSlugForPart(partName, slugMap);
         if (!urlName) {
-          urlName = getSlugForPart(partName);
-        }
-        if (!urlName) {
-          console.warn(`Missing slug for ${partName}`);
           return `<div>${partName}: <span style='color:#f88'>Slug not found</span></div>`;
         }
         try {
@@ -295,70 +181,9 @@ manualScanBtn.addEventListener('click', async function() {
         } catch (e) {
           return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
         }
-      });
-    return Promise.all(partFetches).then(partRows =>
-      `<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`
+      })
     );
-  });
-  const allResults = await Promise.all(allFetches);
-  priceResult.innerHTML = allResults.join('<hr>');
-});
-
-// Utility: sleep for throttling
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-// --- FIX: Ensure Relics.json is loaded before any price lookup ---
-// Move relicsData loading to a single place and always await it before price lookups
-
-let relicsDataPromise = null;
-function getRelicsData() {
-  if (!relicsDataPromise) {
-    relicsDataPromise = fetch('Relics.json')
-      .then(res => res.json())
-      .catch(() => []);
+    priceSections.push(`<div><strong>${relicCode} Parts & Prices:</strong><br>${partRows.join('')}</div>`);
   }
-  return relicsDataPromise;
-}
-
-// --- Build a master lookup map of all part names to slugs at startup ---
-let PART_SLUGS = {};
-let PART_NAMES = [];
-
-function normalizePartName(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-async function buildPartSlugs() {
-  const relicsData = await getRelicsData();
-  relicsData.forEach(relic => {
-    relic.rewards.forEach(r => {
-      if (r.item && r.item.name && r.warframeMarket && r.warframeMarket.urlName) {
-        const norm = normalizePartName(r.item.name);
-        PART_SLUGS[norm] = r.warframeMarket.urlName;
-        PART_NAMES.push(norm);
-      }
-    });
-  });
-}
-
-// Call this once at startup
-buildPartSlugs();
-
-// --- Helper: Fuzzy slug lookup ---
-function getSlugForPart(partName) {
-  const norm = normalizePartName(partName);
-  if (PART_SLUGS[norm]) return PART_SLUGS[norm];
-  // Fuzzy fallback
-  let best = null, bestDist = 3;
-  for (const candidate of PART_NAMES) {
-    const dist = levenshtein(norm, candidate);
-    if (dist < bestDist) {
-      best = candidate;
-      bestDist = dist;
-    }
-  }
-  if (best && bestDist <= 2) return PART_SLUGS[best];
-  return null;
+  priceResultElem.innerHTML = priceSections.join('<hr>');
 }
