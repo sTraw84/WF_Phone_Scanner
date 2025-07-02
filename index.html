@@ -10,7 +10,7 @@
   <h1>Warframe Relic Scanner</h1>
   <img src="example.jpg" alt="Example" id="exampleImg" style="max-width: 90vw; max-height: 180px; display: block; margin: 0 auto 0.5rem auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.5);" />
   <div class="instructions" style="margin-bottom: 1.2rem; text-align: center;">
-    When mission loads, load options menu and take a picture of the users in the top left to capture their relic data.
+    When the mission begins, load the options menu and take a picture of the users in the top left to capture their relic data or manually enter the relics.
   </div>
   <div style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem; margin-bottom: 1.2rem;">
     <label for="scanMode" style="font-weight: bold;">Scan Mode:</label>
@@ -35,16 +35,29 @@
   <button id="scanButton" style="display:none;">Scan</button>
   <!-- Manual Entry Container -->
   <div id="manualEntryContainer" style="display:none; margin-top:1em;">
-    <label>Relic 1: <input type="text" class="manual-relic" placeholder="e.g. Neo N9"></label><br>
-    <label>Relic 2: <input type="text" class="manual-relic" placeholder="e.g. Lith S6"></label><br>
-    <label>Relic 3: <input type="text" class="manual-relic" placeholder="e.g. Meso F2"></label><br>
-    <label>Relic 4: <input type="text" class="manual-relic" placeholder="e.g. Axi V8"></label><br>
+    <div id="manualEntryControls" style="display:none; margin-bottom:0.7em; align-items:center; gap:0.5em;">
+      <label for="manualEntryCount">Number of Relics: </label>
+      <input type="number" id="manualEntryCount" min="1" max="20" value="4" style="width:3em;">
+      <button type="button" id="manualEntryCountUp">▲</button>
+      <button type="button" id="manualEntryCountDown">▼</button>
+    </div>
+    <div id="manualEntryFields">
+      <!-- Relic input fields will be rendered here by JS -->
+    </div>
     <button id="manualScanBtn">Scan These Relics</button>
   </div>
   <!-- Results -->
   <div id="ocrResult"></div>
   <div id="priceResult"></div>
   <div style="margin-top:1rem; font-size:0.9em; color:#aaa;">Prices may take a moment to load after scanning.</div>
+  <div style="margin-top:1.5rem; font-size:0.95em; color:#ffd; background:#222; border-radius:8px; padding:0.8em 1em; max-width:500px; margin-left:auto; margin-right:auto; box-shadow:0 2px 8px rgba(0,0,0,0.2);">
+    <strong>Notes:</strong><br>
+    <ul style="margin:0.5em 0 0 1.2em; padding:0;">
+      <li>This app is hosted on a free backend server. If the server has been inactive, it may take up to a minute to start up on your first request.</li>
+      <li>Mass scans may take longer to process and display results, especially for large numbers of relics.</li>
+      <li>Performing mass scans can sometimes exceed the server's request limits, resulting in errors such as "Too Many Requests", "N/A", or "No Listing Found". If this happens, you can manually re-enter any relics that failed to return results.</li>
+    </ul>
+  </div>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.0.1/dist/tesseract.min.js"></script>
   <script src="app.js"></script>
 </body>

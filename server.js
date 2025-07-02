@@ -92,9 +92,6 @@ async function throttleTasks(tasks, delayMs = 250) {
   return results;
 }
 
-// Track last request time and call count per session (by IP)
-const sessionStats = {};
-
 // 🔥 NEW: Batch fetch endpoint (with outbound throttling)
 app.get('/api/orders_batch', async (req, res) => {
   const itemsParam = req.query.items;
@@ -102,25 +99,9 @@ app.get('/api/orders_batch', async (req, res) => {
     return res.status(400).json({ error: 'Missing items query parameter' });
   }
 
-  const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
-  const now = Date.now();
-  if (!sessionStats[ip]) {
-    sessionStats[ip] = { count: 0, last: now };
-  }
-  sessionStats[ip].count++;
-  const timeSinceLast = now - sessionStats[ip].last;
-  sessionStats[ip].last = now;
-
   const items = itemsParam.split(',').map(i => i.trim().toLowerCase());
   const results = {};
   const uncached = [];
-
-  // Detect duplicate slugs in this batch
-  const slugCounts = {};
-  items.forEach(item => {
-    slugCounts[item] = (slugCounts[item] || 0) + 1;
-  });
-  const duplicates = Object.entries(slugCounts).filter(([slug, count]) => count > 1);
 
   // Check cache first
   items.forEach(item => {
@@ -131,9 +112,6 @@ app.get('/api/orders_batch', async (req, res) => {
       uncached.push(item);
     }
   });
-
-  // Logging for audit
-  console.log(`[BATCH] IP: ${ip} | Batch size: ${items.length} | Uncached: ${uncached.length} | Duplicates: ${duplicates.length > 0 ? JSON.stringify(duplicates) : 'None'} | Calls this session: ${sessionStats[ip].count} | Time since last: ${timeSinceLast}ms`);
 
   try {
     // Prepare throttled fetch tasks

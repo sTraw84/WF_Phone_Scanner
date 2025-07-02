@@ -10,10 +10,22 @@ const scanButton = document.getElementById('scanButton');
 const manualEntryBtn = document.getElementById('manualEntryBtn');
 const manualEntryContainer = document.getElementById('manualEntryContainer');
 const manualScanBtn = document.getElementById('manualScanBtn');
+const scanModeSelect = document.getElementById('scanMode');
+const manualEntryControls = document.getElementById('manualEntryControls');
+const manualEntryCount = document.getElementById('manualEntryCount');
+const manualEntryCountUp = document.getElementById('manualEntryCountUp');
+const manualEntryCountDown = document.getElementById('manualEntryCountDown');
+const manualEntryFields = document.getElementById('manualEntryFields');
 
 // --- Image Upload/Camera Logic ---
-cameraScanBtn.addEventListener('click', () => cameraInput.click());
-uploadBtn.addEventListener('click', () => uploadInput.click());
+cameraScanBtn.addEventListener('click', () => {
+  cameraInput.click();
+  hideManualEntry();
+});
+uploadBtn.addEventListener('click', () => {
+  uploadInput.click();
+  hideManualEntry();
+});
 cameraInput.addEventListener('change', handleImageInput);
 uploadInput.addEventListener('change', handleImageInput);
 
@@ -32,6 +44,28 @@ function handleImageInput(event) {
   reader.readAsDataURL(file);
 }
 
+// --- Helper: Render Manual Entry Fields ---
+function renderManualEntryFields(count) {
+  manualEntryFields.innerHTML = '';
+  for (let i = 0; i < count; i++) {
+    const label = document.createElement('label');
+    label.textContent = `Relic ${i + 1}: `;
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'manual-relic';
+    input.placeholder = 'e.g. Neo N9';
+    label.appendChild(input);
+    manualEntryFields.appendChild(label);
+    manualEntryFields.appendChild(document.createElement('br'));
+  }
+}
+
+// --- Hide Manual Entry When Switching Modes ---
+function hideManualEntry() {
+  manualEntryContainer.style.display = 'none';
+  manualEntryControls.style.display = 'none';
+}
+
 // --- Manual Entry Logic ---
 manualEntryBtn.addEventListener('click', function() {
   manualEntryContainer.style.display = 'block';
@@ -39,8 +73,51 @@ manualEntryBtn.addEventListener('click', function() {
   scanButton.style.display = 'none';
   document.getElementById('ocrResult').textContent = '';
   document.getElementById('priceResult').textContent = '';
+  // Show/hide controls based on scan mode
+  if (scanModeSelect.value === 'mass') {
+    manualEntryControls.style.display = 'flex';
+    renderManualEntryFields(Number(manualEntryCount.value));
+  } else {
+    manualEntryControls.style.display = 'none';
+    renderManualEntryFields(4);
+  }
 });
 
+// --- Mass Scan: Manual Entry Count Controls ---
+function updateManualEntryCount(newCount) {
+  manualEntryCount.value = newCount;
+  renderManualEntryFields(newCount);
+}
+manualEntryCountUp.addEventListener('click', () => {
+  let val = Number(manualEntryCount.value);
+  if (val < 20) updateManualEntryCount(val + 1);
+});
+manualEntryCountDown.addEventListener('click', () => {
+  let val = Number(manualEntryCount.value);
+  if (val > 1) updateManualEntryCount(val - 1);
+});
+manualEntryCount.addEventListener('input', () => {
+  let val = Number(manualEntryCount.value);
+  if (isNaN(val) || val < 1) val = 1;
+  if (val > 20) val = 20;
+  updateManualEntryCount(val);
+});
+
+// --- React to Scan Mode Change ---
+scanModeSelect.addEventListener('change', () => {
+  // If manual entry is open, update controls/fields
+  if (manualEntryContainer.style.display === 'block') {
+    if (scanModeSelect.value === 'mass') {
+      manualEntryControls.style.display = 'flex';
+      renderManualEntryFields(Number(manualEntryCount.value));
+    } else {
+      manualEntryControls.style.display = 'none';
+      renderManualEntryFields(4);
+    }
+  }
+});
+
+// --- Manual Scan Button Logic (with normalization) ---
 manualScanBtn.addEventListener('click', async function() {
   const ocrResult = document.getElementById('ocrResult');
   const priceResult = document.getElementById('priceResult');
@@ -51,9 +128,15 @@ manualScanBtn.addEventListener('click', async function() {
     ocrResult.textContent = 'Please enter at least one relic.';
     return;
   }
-  // Validate and normalize relic codes
-  const validRelicRegex = /^(Meso|Lith|Neo|Axi)\s?[A-Z][0-9]+$/i;
-  const relics = inputs.map(r => r.replace(/\s+/, ' ')).filter(r => validRelicRegex.test(r));
+  // Validate and normalize relic codes (case-insensitive, proper format)
+  const validRelicRegex = /^(meso|lith|neo|axi)\s?[a-z][0-9]+$/i;
+  function normalizeRelicCode(code) {
+    // Normalize to: Capitalize era, uppercase letter, keep number
+    const match = code.match(/^(meso|lith|neo|axi)\s*([a-zA-Z])\s*(\d+)$/i);
+    if (!match) return code;
+    return `${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()} ${match[2].toUpperCase()}${match[3]}`;
+  }
+  const relics = inputs.map(r => r.replace(/\s+/, ' ')).map(normalizeRelicCode).filter(r => validRelicRegex.test(r));
   if (relics.length === 0) {
     ocrResult.textContent = 'Please enter valid relic codes (e.g. Neo N9).';
     return;
@@ -163,17 +246,6 @@ function getSlugForPart(partName, slugMap) {
   return slugMap[norm] || null;
 }
 
-// Helper for legacy slug fallback (for backward compatibility or dev testing)
-function legacySlugFallback(partName, slugMap) {
-  // Try to use the slug map as a fallback
-  if (slugMap) {
-    const norm = normalizePartName(partName);
-    if (slugMap[norm]) return slugMap[norm];
-  }
-  // Fallback: mimic old slug generation (may not be perfect)
-  return partName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-}
-
 // --- Price Lookup and Display ---
 async function showRelicPrices(relicCodes, priceResultElem) {
   const relicsData = await getRelicsData();
@@ -193,40 +265,14 @@ async function showRelicPrices(relicCodes, priceResultElem) {
       .filter(r => !r.item.name.toLowerCase().includes('forma blueprint'))
       .map(async r => {
         const partName = r.item.name;
-        // Use urlName from Relics.json if available, else fallback
-        const urlName = r.warframeMarket && r.warframeMarket.urlName
-          ? r.warframeMarket.urlName
-          : legacySlugFallback(partName, slugMap);
+        const urlName = r.warframeMarket && r.warframeMarket.urlName ? r.warframeMarket.urlName : getSlugForPart(partName, slugMap);
         if (!urlName) {
           return `<div>${partName}: <span style='color:#f88'>Slug not found</span></div>`;
         }
-        // Helper to log failed slugs
-        function logFailedSlug(slug, reason) {
-          const key = 'wf_failed_slugs';
-          let log = [];
-          try { log = JSON.parse(localStorage.getItem(key)) || []; } catch {}
-          log.push({ slug, partName, reason, time: new Date().toISOString() });
-          localStorage.setItem(key, JSON.stringify(log));
-        }
-        // Try fetch, retry once if fails
-        async function fetchWithRetry(url, retries = 1, delay = 500) {
-          for (let attempt = 0; attempt <= retries; attempt++) {
-            try {
-              const res = await fetch(url);
-              if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
-              const data = await res.json();
-              return data;
-            } catch (e) {
-              if (attempt < retries) {
-                await new Promise(res => setTimeout(res, delay));
-              } else {
-                throw e;
-              }
-            }
-          }
-        }
         try {
-          const data = await fetchWithRetry(`${API_BASE_URL}/api/orders/${urlName}`, 1, 500);
+          const res = await fetch(`${API_BASE_URL}/api/orders/${urlName}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
+          const data = await res.json();
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
           const sellIngame = data.payload.orders.filter(o => o.order_type === 'sell' && o.user.status === 'ingame');
           if (!sellIngame.length) {
@@ -237,8 +283,7 @@ async function showRelicPrices(relicCodes, priceResultElem) {
             return `<div>${partName}: <strong>${avg}p</strong></div>`;
           }
         } catch (e) {
-          logFailedSlug(urlName, e.message);
-          return `<div>${partName}: <span style='color:#f88'>N/A (Price unavailable)</span></div>`;
+          return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
         }
       })
     );

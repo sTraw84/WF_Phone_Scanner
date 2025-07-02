@@ -1,24 +1,10 @@
 {
   "name": "wf-proxy",
   "version": "1.0.0",
-  "description": "Proxy server for Warframe Market API to avoid CORS and rate limit issues",
   "main": "server.js",
-  "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
-  },
-  "engines": {
-    "node": ">=16"
-  },
   "dependencies": {
     "express": "^4.18.2",
     "node-fetch": "^2.6.7",
-    "cors": "^2.8.5",
-    "express-rate-limit": "^7.0.0",
-    "node-cache": "^5.1.2"
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.22"
-  },
-  "license": "MIT"
-}
+    "cors": "^2.8.5"
+  }
+} 
