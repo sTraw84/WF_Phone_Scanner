@@ -142,7 +142,7 @@ scanButton.addEventListener('click', async function() {
             const partName = r.item.name;
             let urlName = r.warframeMarket && r.warframeMarket.urlName;
             if (!urlName) {
-              urlName = PART_SLUGS[partName.toLowerCase()];
+              urlName = getSlugForPart(partName);
             }
             if (!urlName) {
               console.warn(`Missing slug for ${partName}`);
@@ -191,7 +191,7 @@ scanButton.addEventListener('click', async function() {
           if (partName.toLowerCase().includes('forma blueprint')) continue;
           let urlName = r.warframeMarket && r.warframeMarket.urlName;
           if (!urlName) {
-            urlName = PART_SLUGS[partName.toLowerCase()];
+            urlName = getSlugForPart(partName);
           }
           if (!urlName) {
             console.warn(`Missing slug for ${partName}`);
@@ -273,7 +273,7 @@ manualScanBtn.addEventListener('click', async function() {
         const partName = r.item.name;
         let urlName = r.warframeMarket && r.warframeMarket.urlName;
         if (!urlName) {
-          urlName = PART_SLUGS[partName.toLowerCase()];
+          urlName = getSlugForPart(partName);
         }
         if (!urlName) {
           console.warn(`Missing slug for ${partName}`);
@@ -324,13 +324,20 @@ function getRelicsData() {
 
 // --- Build a master lookup map of all part names to slugs at startup ---
 let PART_SLUGS = {};
+let PART_NAMES = [];
+
+function normalizePartName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
 
 async function buildPartSlugs() {
   const relicsData = await getRelicsData();
   relicsData.forEach(relic => {
     relic.rewards.forEach(r => {
       if (r.item && r.item.name && r.warframeMarket && r.warframeMarket.urlName) {
-        PART_SLUGS[r.item.name.toLowerCase()] = r.warframeMarket.urlName;
+        const norm = normalizePartName(r.item.name);
+        PART_SLUGS[norm] = r.warframeMarket.urlName;
+        PART_NAMES.push(norm);
       }
     });
   });
@@ -338,3 +345,20 @@ async function buildPartSlugs() {
 
 // Call this once at startup
 buildPartSlugs();
+
+// --- Helper: Fuzzy slug lookup ---
+function getSlugForPart(partName) {
+  const norm = normalizePartName(partName);
+  if (PART_SLUGS[norm]) return PART_SLUGS[norm];
+  // Fuzzy fallback
+  let best = null, bestDist = 3;
+  for (const candidate of PART_NAMES) {
+    const dist = levenshtein(norm, candidate);
+    if (dist < bestDist) {
+      best = candidate;
+      bestDist = dist;
+    }
+  }
+  if (best && bestDist <= 2) return PART_SLUGS[best];
+  return null;
+}
