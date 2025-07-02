@@ -15,7 +15,16 @@ const cache = new NodeCache({ stdTTL: 300, checkperiod: 60 });
 
 app.set('trust proxy', 1); // Trust first proxy (required for rate limiting on Render)
 
-app.use(cors());
+const GITHUB_PAGES_ORIGIN = 'https://straw84.github.io'; // Update if your GitHub Pages URL is different
+app.use(cors({
+  origin: GITHUB_PAGES_ORIGIN
+}));
+
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  console.log(`[REQ] ${new Date().toISOString()} - ${req.method} ${req.originalUrl} - Origin: ${req.headers.origin}`);
+  next();
+});
 
 // Rate limiting to protect your server and the Warframe.Market API
 const limiter = rateLimit({
