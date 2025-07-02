@@ -150,6 +150,31 @@ app.get('/api/orders_batch', async (req, res) => {
   }
 });
 
+// NEW: Proxy for item list
+app.get('/api/items', async (req, res) => {
+  const url = 'https://api.warframe.market/v1/items';
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error(`[API] Failed to fetch items list: ${response.status} ${response.statusText} - Body: ${text}`);
+      return res.status(response.status).json({ error: `Failed to fetch: ${response.statusText}` });
+    }
+
+    const json = await response.json();
+    res.json(json);
+  } catch (e) {
+    console.error(`[API] Exception during items fetch:`, e);
+    res.status(500).json({ error: 'Server error during items fetch' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`✅ Proxy server running on port ${PORT}`);
 });
