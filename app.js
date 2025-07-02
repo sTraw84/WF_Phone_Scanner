@@ -60,7 +60,11 @@ manualScanBtn.addEventListener('click', async function() {
   }
   ocrResult.innerHTML = relics.map((r, idx) => `<div><strong>Relic ${idx + 1}:</strong> ${r}</div>`).join('');
   priceResult.innerHTML = 'Loading prices...';
-  await showRelicPrices(relics, priceResult);
+  try {
+    await showRelicPrices(relics, priceResult);
+  } catch (err) {
+    priceResult.innerHTML = `<span style='color:#f88'>Error loading relic data or prices: ${err.message}</span>`;
+  }
 });
 
 // --- OCR Scan Logic ---
@@ -81,8 +85,6 @@ scanButton.addEventListener('click', async function() {
     while ((match = relicRegex.exec(ocrText)) !== null) {
       matches.push(match[0].replace(/\s+/, ' '));
     }
-    // Fuzzy fallback for missed relics (optional, can be removed for minimalism)
-    // ...
     // Group relics
     let grouped = [];
     if (scanMode === 'fissure') {
@@ -92,7 +94,11 @@ scanButton.addEventListener('click', async function() {
     }
     ocrResult.innerHTML = grouped.map((group, idx) => `<div><strong>Relic ${idx + 1}:</strong> ${group.join(', ') || 'Not found'}</div>`).join('');
     priceResult.innerHTML = 'Loading prices...';
-    await showRelicPrices(grouped.map(g => g[0]), priceResult);
+    try {
+      await showRelicPrices(grouped.map(g => g[0]), priceResult);
+    } catch (err) {
+      priceResult.innerHTML = `<span style='color:#f88'>Error loading relic data or prices: ${err.message}</span>`;
+    }
   } catch (err) {
     ocrResult.textContent = 'Error during OCR: ' + err.message;
     priceResult.textContent = '';
@@ -108,8 +114,20 @@ const SLUG_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 1 week
 
 async function getRelicsData() {
   if (RELICS_DATA) return RELICS_DATA;
-  const res = await fetch('Relics.json');
-  RELICS_DATA = await res.json();
+  let res;
+  try {
+    res = await fetch('Relics.json');
+  } catch (e) {
+    throw new Error('Failed to fetch Relics.json: ' + e.message);
+  }
+  if (!res.ok) {
+    throw new Error('Failed to fetch Relics.json: HTTP ' + res.status + ' ' + res.statusText);
+  }
+  try {
+    RELICS_DATA = await res.json();
+  } catch (e) {
+    throw new Error('Failed to parse Relics.json: ' + e.message);
+  }
   return RELICS_DATA;
 }
 
