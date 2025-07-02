@@ -163,6 +163,17 @@ function getSlugForPart(partName, slugMap) {
   return slugMap[norm] || null;
 }
 
+// Helper for legacy slug fallback (for backward compatibility or dev testing)
+function legacySlugFallback(partName, slugMap) {
+  // Try to use the slug map as a fallback
+  if (slugMap) {
+    const norm = normalizePartName(partName);
+    if (slugMap[norm]) return slugMap[norm];
+  }
+  // Fallback: mimic old slug generation (may not be perfect)
+  return partName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+}
+
 // --- Price Lookup and Display ---
 async function showRelicPrices(relicCodes, priceResultElem) {
   const relicsData = await getRelicsData();
@@ -182,14 +193,40 @@ async function showRelicPrices(relicCodes, priceResultElem) {
       .filter(r => !r.item.name.toLowerCase().includes('forma blueprint'))
       .map(async r => {
         const partName = r.item.name;
-        const urlName = r.warframeMarket && r.warframeMarket.urlName ? r.warframeMarket.urlName : getSlugForPart(partName, slugMap);
+        // Use urlName from Relics.json if available, else fallback
+        const urlName = r.warframeMarket && r.warframeMarket.urlName
+          ? r.warframeMarket.urlName
+          : legacySlugFallback(partName, slugMap);
         if (!urlName) {
           return `<div>${partName}: <span style='color:#f88'>Slug not found</span></div>`;
         }
+        // Helper to log failed slugs
+        function logFailedSlug(slug, reason) {
+          const key = 'wf_failed_slugs';
+          let log = [];
+          try { log = JSON.parse(localStorage.getItem(key)) || []; } catch {}
+          log.push({ slug, partName, reason, time: new Date().toISOString() });
+          localStorage.setItem(key, JSON.stringify(log));
+        }
+        // Try fetch, retry once if fails
+        async function fetchWithRetry(url, retries = 1, delay = 500) {
+          for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+              const res = await fetch(url);
+              if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
+              const data = await res.json();
+              return data;
+            } catch (e) {
+              if (attempt < retries) {
+                await new Promise(res => setTimeout(res, delay));
+              } else {
+                throw e;
+              }
+            }
+          }
+        }
         try {
-          const res = await fetch(`${API_BASE_URL}/api/orders/${urlName}`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
-          const data = await res.json();
+          const data = await fetchWithRetry(`${API_BASE_URL}/api/orders/${urlName}`, 1, 500);
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
           const sellIngame = data.payload.orders.filter(o => o.order_type === 'sell' && o.user.status === 'ingame');
           if (!sellIngame.length) {
@@ -200,7 +237,8 @@ async function showRelicPrices(relicCodes, priceResultElem) {
             return `<div>${partName}: <strong>${avg}p</strong></div>`;
           }
         } catch (e) {
-          return `<div>${partName}: <span style='color:#f88'>${e.message}</span></div>`;
+          logFailedSlug(urlName, e.message);
+          return `<div>${partName}: <span style='color:#f88'>N/A (Price unavailable)</span></div>`;
         }
       })
     );
