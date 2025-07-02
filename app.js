@@ -112,6 +112,9 @@ const SLUG_CACHE_KEY = 'wf_slug_map';
 const SLUG_CACHE_TIME_KEY = 'wf_slug_map_time';
 const SLUG_CACHE_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 1 week
 
+// Use the full API URL for price data fetches when running from GitHub Pages
+const API_BASE_URL = 'https://wf-phone-scanner.onrender.com';
+
 async function getRelicsData() {
   if (RELICS_DATA) return RELICS_DATA;
   let res;
@@ -184,7 +187,7 @@ async function showRelicPrices(relicCodes, priceResultElem) {
           return `<div>${partName}: <span style='color:#f88'>Slug not found</span></div>`;
         }
         try {
-          const res = await fetch(`/api/orders/${urlName}`);
+          const res = await fetch(`${API_BASE_URL}/api/orders/${urlName}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText} (slug: ${urlName})`);
           const data = await res.json();
           if (!data.payload || !data.payload.orders) throw new Error('No orders');
