@@ -142,12 +142,11 @@ scanButton.addEventListener('click', async function() {
             const partName = r.item.name;
             let urlName = r.warframeMarket && r.warframeMarket.urlName;
             if (!urlName) {
-              urlName = partName
-                .toLowerCase()
-                .replace(/\s+/g, '_')
-                .replace(/&/g, 'and')
-                .replace(/[^a-z0-9_]/g, '')
-                .replace(/_blueprint$/, ''); // <-- Remove trailing _blueprint
+              urlName = PART_SLUGS[partName.toLowerCase()];
+            }
+            if (!urlName) {
+              console.warn(`Missing slug for ${partName}`);
+              return `<div>${partName}: <span style='color:#f88'>Slug not found</span></div>`;
             }
             try {
               const res = await fetch(`/api/orders/${urlName}`);
@@ -192,12 +191,11 @@ scanButton.addEventListener('click', async function() {
           if (partName.toLowerCase().includes('forma blueprint')) continue;
           let urlName = r.warframeMarket && r.warframeMarket.urlName;
           if (!urlName) {
-            urlName = partName
-              .toLowerCase()
-              .replace(/\s+/g, '_')
-              .replace(/&/g, 'and')
-              .replace(/[^a-z0-9_]/g, '')
-              .replace(/_blueprint$/, ''); // <-- Remove trailing _blueprint
+            urlName = PART_SLUGS[partName.toLowerCase()];
+          }
+          if (!urlName) {
+            console.warn(`Missing slug for ${partName}`);
+            continue; // or return if inside a map
           }
           try {
             const res = await fetch(`/api/orders/${urlName}`);
@@ -275,12 +273,11 @@ manualScanBtn.addEventListener('click', async function() {
         const partName = r.item.name;
         let urlName = r.warframeMarket && r.warframeMarket.urlName;
         if (!urlName) {
-          urlName = partName
-            .toLowerCase()
-            .replace(/\s+/g, '_')
-            .replace(/&/g, 'and')
-            .replace(/[^a-z0-9_]/g, '')
-            .replace(/_blueprint$/, ''); // <-- Remove trailing _blueprint
+          urlName = PART_SLUGS[partName.toLowerCase()];
+        }
+        if (!urlName) {
+          console.warn(`Missing slug for ${partName}`);
+          return `<div>${partName}: <span style='color:#f88'>Slug not found</span></div>`;
         }
         try {
           const res = await fetch(`/api/orders/${urlName}`);
@@ -324,3 +321,20 @@ function getRelicsData() {
   }
   return relicsDataPromise;
 }
+
+// --- Build a master lookup map of all part names to slugs at startup ---
+let PART_SLUGS = {};
+
+async function buildPartSlugs() {
+  const relicsData = await getRelicsData();
+  relicsData.forEach(relic => {
+    relic.rewards.forEach(r => {
+      if (r.item && r.item.name && r.warframeMarket && r.warframeMarket.urlName) {
+        PART_SLUGS[r.item.name.toLowerCase()] = r.warframeMarket.urlName;
+      }
+    });
+  });
+}
+
+// Call this once at startup
+buildPartSlugs();
