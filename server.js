@@ -29,9 +29,13 @@ const USER_AGENT = 'WarframeRelicScanner/1.0 (contact: sjtrawick@gmail.com)';
 app.get('/api/orders/:item', async (req, res) => {
   const item = req.params.item.toLowerCase();
 
+  // Log incoming request
+  console.log(`[API] /api/orders/${item} requested at ${new Date().toISOString()}`);
+
   // Check cache
   const cached = cache.get(item);
   if (cached) {
+    console.log(`[API] Cache hit for ${item}`);
     return res.json(cached);
   }
 
@@ -46,19 +50,37 @@ app.get('/api/orders/:item', async (req, res) => {
     });
 
     if (!response.ok) {
+      const text = await response.text();
+      console.error(`[API] Fetch failed for ${item}: ${response.status} ${response.statusText} - Body: ${text}`);
       return res.status(response.status).json({ error: `Failed to fetch: ${response.statusText}` });
     }
 
     const json = await response.json();
     cache.set(item, json);
+    console.log(`[API] Success for ${item}`);
     res.json(json);
   } catch (e) {
-    console.error(`Fetch error for ${item}:`, e);
+    console.error(`[API] Exception for ${item}:`, e);
     res.status(500).json({ error: 'Server error. Please try again later.' });
   }
 });
 
-// 🔥 NEW: Batch fetch endpoint
+// Helper: Throttle async tasks (one at a time, 250ms apart)
+async function throttleTasks(tasks, delayMs = 250) {
+  const results = [];
+  for (const task of tasks) {
+    // eslint-disable-next-line no-await-in-loop
+    results.push(await task());
+    // Don't delay after the last task
+    if (task !== tasks[tasks.length - 1]) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(res => setTimeout(res, delayMs));
+    }
+  }
+  return results;
+}
+
+// 🔥 NEW: Batch fetch endpoint (with outbound throttling)
 app.get('/api/orders_batch', async (req, res) => {
   const itemsParam = req.query.items;
   if (!itemsParam) {
@@ -79,29 +101,35 @@ app.get('/api/orders_batch', async (req, res) => {
     }
   });
 
-  // Fetch uncached items in parallel
   try {
-    const fetchPromises = uncached.map(async item => {
+    // Prepare throttled fetch tasks
+    const fetchTasks = uncached.map(item => async () => {
       const apiUrl = `https://api.warframe.market/v1/items/${item}/orders?platform=pc`;
-      const response = await fetch(apiUrl, {
-        headers: {
-          'User-Agent': USER_AGENT,
-          'Accept': 'application/json'
+      try {
+        const response = await fetch(apiUrl, {
+          headers: {
+            'User-Agent': USER_AGENT,
+            'Accept': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          console.warn(`Failed to fetch ${item}: ${response.statusText}`);
+          results[item] = { error: `Failed to fetch: ${response.statusText}` };
+          return;
         }
-      });
 
-      if (!response.ok) {
-        console.warn(`Failed to fetch ${item}: ${response.statusText}`);
-        results[item] = { error: `Failed to fetch: ${response.statusText}` };
-        return;
+        const json = await response.json();
+        results[item] = json;
+        cache.set(item, json);
+      } catch (e) {
+        console.warn(`Fetch error for ${item}:`, e);
+        results[item] = { error: 'Server error during fetch' };
       }
-
-      const json = await response.json();
-      results[item] = json;
-      cache.set(item, json);
     });
 
-    await Promise.all(fetchPromises);
+    // Throttle outbound requests (250ms apart)
+    await throttleTasks(fetchTasks, 250);
 
     res.json({ success: true, payload: results });
   } catch (e) {
