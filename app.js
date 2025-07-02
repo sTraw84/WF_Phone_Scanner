@@ -160,11 +160,9 @@ scanButton.addEventListener('click', async function() {
   priceResult.textContent = '';
   try {
     const result = await Tesseract.recognize(img.src, 'eng');
-    let ocrText = result.data.text.trim();
-    // Preprocess: Remove 'x#' prefixes (e.g., 'x12 ')
-    ocrText = ocrText.replace(/x\d+\s*/gi, '');
-    // Extract relic codes (robust to extra spaces)
-    const relicRegex = /(Meso|Lith|Neo|Axi)\s*[A-Z]\d+/gi;
+    const ocrText = result.data.text.trim();
+    // Extract relic codes
+    const relicRegex = /(Meso|Lith|Neo|Axi)\s?[A-Z]+\d+/gi;
     const matches = [];
     let match;
     while ((match = relicRegex.exec(ocrText)) !== null) {
