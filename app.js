@@ -129,10 +129,10 @@ manualScanBtn.addEventListener('click', async function() {
     return;
   }
   // Validate and normalize relic codes (case-insensitive, proper format)
-  const validRelicRegex = /^(meso|lith|neo|axi)\s?[a-z][0-9]+$/i;
+  const validRelicRegex = /^(meso|lith|neo|axi)\s?[a-z][1-9][0-9]?$/i;
   function normalizeRelicCode(code) {
-    // Normalize to: Capitalize era, uppercase letter, keep number
-    const match = code.match(/^(meso|lith|neo|axi)\s*([a-zA-Z])\s*(\d+)$/i);
+    // Normalize to: Capitalize era, uppercase letter, keep number (1-99)
+    const match = code.match(/^(meso|lith|neo|axi)\s*([a-zA-Z])\s*([1-9][0-9]?)$/i);
     if (!match) return code;
     return `${match[1][0].toUpperCase()}${match[1].slice(1).toLowerCase()} ${match[2].toUpperCase()}${match[3]}`;
   }
@@ -161,12 +161,12 @@ scanButton.addEventListener('click', async function() {
   try {
     const result = await Tesseract.recognize(img.src, 'eng');
     const ocrText = result.data.text.trim();
-    // Extract relic codes
-    const relicRegex = /(Meso|Lith|Neo|Axi)\s?[A-Z]+\d+/gi;
+    // Extract relic codes, robustly handling quantity prefixes
+    const relicRegex = /(?:x\d+\s+)?((Meso|Lith|Neo|Axi)\s?[A-Z][1-9][0-9]?)/gi;
     const matches = [];
     let match;
     while ((match = relicRegex.exec(ocrText)) !== null) {
-      matches.push(match[0].replace(/\s+/, ' '));
+      matches.push(match[1].replace(/\s+/, ' ')); // match[1] is the relic code
     }
     // Group relics
     let grouped = [];
